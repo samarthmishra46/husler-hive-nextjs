@@ -360,7 +360,6 @@ const certificates = [
                   src={v.src}
                   playsInline
                   loop
-                  muted
                   preload="metadata"
                   onClick={() => handleVideoToggle(i)}
                   className="video-player"
