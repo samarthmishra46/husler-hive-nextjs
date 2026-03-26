@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
         if (user) {
           const upper = newStatus.toUpperCase();
           if (['CANCELLED', 'EXPIRED', 'COMPLETED', 'PAUSED'].includes(upper)) {
-            user.subscriptionStatus = upper === 'PAUSED' ? 'cancelled' : newStatus.toLowerCase();
+            user.subscriptionStatus = (upper === 'PAUSED' ? 'cancelled' : newStatus.toLowerCase()) as 'cancelled' | 'expired';
             await user.save();
 
             await AuditLog.create({
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
 
             await kickFromDiscord(user);
           } else if (upper === 'ACTIVE') {
-            user.subscriptionStatus = 'active';
+            user.subscriptionStatus = 'active' as const;
             await user.save();
 
             await AuditLog.create({
