@@ -6,23 +6,37 @@ import AuditLog from '@/models/AuditLog';
 import { verifyWebhookSignature } from '@/lib/cashfree';
 import { removeUserFromChannel, kickUserFromGuild } from '@/lib/discord';
 
-// Helper: find user by subscription ID
-async function findUserBySub(data: Record<string, unknown>) {
-  const sub = data.subscription as Record<string, unknown> | undefined;
-  const subscriptionId = sub?.subscription_id || data.subscription_id;
+// ─── Helpers ────────────────────────────────────────────────
+
+/**
+ * Extract subscription_id from Cashfree webhook payload.
+ * Payment events: data.subscription_id
+ * Status events:  data.subscription_details.subscription_id
+ */
+function getSubscriptionId(data: Record<string, unknown>): string {
+  const subDetails = data.subscription_details as Record<string, unknown> | undefined;
+  return (
+    (data.subscription_id as string) ||
+    (subDetails?.subscription_id as string) ||
+    ''
+  );
+}
+
+/** Find user by their Cashfree subscription ID */
+async function findUser(data: Record<string, unknown>) {
+  const subscriptionId = getSubscriptionId(data);
   if (!subscriptionId) return null;
   return User.findOne({ cashfreeSubscriptionId: subscriptionId });
 }
 
-// Helper: kick user from Discord
-async function kickFromDiscord(user: InstanceType<typeof User>) {
+/** Kick user from Discord channel + guild */
+async function kickFromDiscord(
+  user: InstanceType<typeof User>,
+  reason: string
+) {
   if (!user.discordId || !user.channelAdded) return;
-  try {
-    await removeUserFromChannel(user.discordId);
-  } catch (err) { console.error('Error removing from channel:', err); }
-  try {
-    await kickUserFromGuild(user.discordId);
-  } catch (err) { console.error('Error kicking from guild:', err); }
+  try { await removeUserFromChannel(user.discordId); } catch (e) { console.error('Remove from channel error:', e); }
+  try { await kickUserFromGuild(user.discordId); } catch (e) { console.error('Kick from guild error:', e); }
   user.channelAdded = false;
   user.leftAt = new Date();
   await user.save();
@@ -30,9 +44,23 @@ async function kickFromDiscord(user: InstanceType<typeof User>) {
     userId: user._id,
     userEmail: user.email,
     action: 'kicked',
-    details: `Kicked from Discord`,
+    details: reason,
   });
 }
+
+// Statuses that mean the user should lose access
+const INACTIVE_STATUSES = [
+  'CANCELLED',
+  'CUSTOMER_CANCELLED',
+  'CUSTOMER_PAUSED',
+  'EXPIRED',
+  'COMPLETED',
+  'ON_HOLD',
+  'LINK_EXPIRED',
+  'CARD_EXPIRED',
+];
+
+// ─── Webhook Handler ────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,220 +77,262 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = JSON.parse(rawBody);
-    const eventType = payload.type || payload.event;
-    const data = payload.data || payload;
-    const sub = (data.subscription || {}) as Record<string, unknown>;
-    const subscriptionId = sub.subscription_id || data.subscription_id || '';
+    const eventType: string = payload.type || '';
+    const data = (payload.data || {}) as Record<string, unknown>;
+    const subscriptionId = getSubscriptionId(data);
 
-    console.log(`Webhook received: ${eventType} for subscription ${subscriptionId}`);
+    console.log(`[Webhook] ${eventType} | sub: ${subscriptionId}`);
 
     await dbConnect();
 
     switch (eventType) {
-      // ─── Payment Success ───
-      case 'SUBSCRIPTION_PAYMENT_CHARGED':
-      case 'SUBSCRIPTION_PAYMENT_SUCCESS':
-      case 'PAYMENT_SUCCESS_WEBHOOK': {
-        const user = await findUserBySub(data);
-        if (user) {
-          user.subscriptionStatus = 'active';
-          await user.save();
+      // ═══════════════════════════════════════════════════
+      // 1. SUBSCRIPTION_STATUS_CHANGED
+      //    Fired when subscription moves to any status:
+      //    ACTIVE, CANCELLED, CUSTOMER_CANCELLED, EXPIRED, etc.
+      //    This is the PRIMARY event for cancellation kicks.
+      // ═══════════════════════════════════════════════════
+      case 'SUBSCRIPTION_STATUS_CHANGED': {
+        const subDetails = data.subscription_details as Record<string, unknown> | undefined;
+        const newStatus = (subDetails?.subscription_status as string) || '';
 
-          await Payment.create({
-            userId: user._id,
-            cashfreeSubscriptionId: subscriptionId,
-            amount: sub.amount || data.amount || 0,
-            status: 'success',
-            paidAt: new Date(),
-            cfPaymentId: data.cf_payment_id || data.payment_id,
-          });
+        console.log(`[Webhook] Status changed → ${newStatus}`);
 
-          await AuditLog.create({
-            userId: user._id, userEmail: user.email,
-            action: 'payment_success',
-            details: `Payment received for subscription ${subscriptionId}`,
-          });
-        }
-        break;
-      }
+        const user = await findUser(data);
+        if (!user) break;
 
-      // ─── Payment Failed ───
-      case 'SUBSCRIPTION_PAYMENT_DECLINED':
-      case 'SUBSCRIPTION_PAYMENT_FAILED':
-      case 'PAYMENT_FAILED_WEBHOOK': {
-        const user = await findUserBySub(data);
-        if (user) {
-          user.subscriptionStatus = 'expired';
-          await user.save();
-
-          await Payment.create({
-            userId: user._id,
-            cashfreeSubscriptionId: subscriptionId,
-            amount: sub.amount || data.amount || 0,
-            status: 'failed',
-            cfPaymentId: data.cf_payment_id || data.payment_id,
-          });
-
-          await AuditLog.create({
-            userId: user._id, userEmail: user.email,
-            action: 'payment_failed',
-            details: `Payment failed for subscription ${subscriptionId}`,
-          });
-
-          await kickFromDiscord(user);
-        }
-        break;
-      }
-
-      // ─── Payment Cancelled (user cancelled a pending payment) ───
-      case 'SUBSCRIPTION_PAYMENT_CANCELLED': {
-        const user = await findUserBySub(data);
-        if (user) {
-          await AuditLog.create({
-            userId: user._id, userEmail: user.email,
-            action: 'payment_failed',
-            details: `Payment cancelled for subscription ${subscriptionId}`,
-          });
-        }
-        break;
-      }
-
-      // ─── Subscription Cancelled ───
-      case 'SUBSCRIPTION_CANCELLED': {
-        const user = await findUserBySub(data);
-        if (user) {
-          user.subscriptionStatus = 'cancelled';
+        if (INACTIVE_STATUSES.includes(newStatus.toUpperCase())) {
+          // User lost access — update status and kick
+          user.subscriptionStatus = 'cancelled' as const;
           await user.save();
 
           await AuditLog.create({
             userId: user._id, userEmail: user.email,
             action: 'left_channel',
-            details: 'Subscription cancelled',
+            details: `Subscription status: ${newStatus}`,
           });
 
-          await kickFromDiscord(user);
-        }
-        break;
-      }
+          await kickFromDiscord(user, `Subscription ${newStatus}`);
 
-      // ─── Subscription Status Changed (main catch-all for status updates) ───
-      case 'SUBSCRIPTION_STATUS_CHANGED': {
-        const newStatus = (sub.subscription_status || data.subscription_status || data.status || '') as string;
-        const user = await findUserBySub(data);
-
-        console.log(`Subscription ${subscriptionId} status → ${newStatus}`);
-
-        if (user) {
-          const upper = newStatus.toUpperCase();
-          if (['CANCELLED', 'EXPIRED', 'COMPLETED', 'PAUSED'].includes(upper)) {
-            user.subscriptionStatus = (upper === 'PAUSED' ? 'cancelled' : newStatus.toLowerCase()) as 'cancelled' | 'expired';
-            await user.save();
-
-            await AuditLog.create({
-              userId: user._id, userEmail: user.email,
-              action: 'left_channel',
-              details: `Subscription status changed to ${newStatus}`,
-            });
-
-            await kickFromDiscord(user);
-          } else if (upper === 'ACTIVE') {
-            user.subscriptionStatus = 'active' as const;
-            await user.save();
-
-            await AuditLog.create({
-              userId: user._id, userEmail: user.email,
-              action: 'subscribed',
-              details: `Subscription activated`,
-            });
-          }
-        }
-        break;
-      }
-
-      // ─── Auth Status (initial mandate/authorization) ───
-      case 'SUBSCRIPTION_AUTH_STATUS': {
-        const authStatus = (sub.authorization_status || data.authorization_status || '') as string;
-        const user = await findUserBySub(data);
-
-        console.log(`Subscription ${subscriptionId} auth status: ${authStatus}`);
-
-        if (user) {
-          if (authStatus.toUpperCase() === 'ACTIVE') {
-            user.subscriptionStatus = user.subscriptionStatus === 'none' ? 'trial' : user.subscriptionStatus;
-            await user.save();
-          }
+        } else if (newStatus.toUpperCase() === 'ACTIVE') {
+          // Subscription is active
+          user.subscriptionStatus = 'active' as const;
+          await user.save();
 
           await AuditLog.create({
             userId: user._id, userEmail: user.email,
-            action: authStatus.toUpperCase() === 'ACTIVE' ? 'subscribed' : 'payment_failed',
-            details: `Subscription auth status: ${authStatus}`,
+            action: 'subscribed',
+            details: 'Subscription activated',
+          });
+        } else if (newStatus.toUpperCase() === 'BANK_APPROVAL_PENDING') {
+          // Waiting for bank — just log
+          await AuditLog.create({
+            userId: user._id, userEmail: user.email,
+            action: 'subscribed',
+            details: `Subscription: ${newStatus}`,
           });
         }
         break;
       }
 
-      // ─── Card Expiry Reminder ───
-      case 'SUBSCRIPTION_CARD_EXPIRY_REMINDER': {
-        const user = await findUserBySub(data);
-        if (user) {
+      // ═══════════════════════════════════════════════════
+      // 2. SUBSCRIPTION_AUTH_STATUS
+      //    Fired when initial authorization succeeds/fails.
+      //    data.authorization_details.authorization_status = ACTIVE | FAILED
+      // ═══════════════════════════════════════════════════
+      case 'SUBSCRIPTION_AUTH_STATUS': {
+        const authDetails = data.authorization_details as Record<string, unknown> | undefined;
+        const authStatus = (authDetails?.authorization_status as string) || '';
+        const paymentStatus = (data.payment_status as string) || '';
+
+        console.log(`[Webhook] Auth status: ${authStatus}, Payment: ${paymentStatus}`);
+
+        const user = await findUser(data);
+        if (!user) break;
+
+        if (authStatus.toUpperCase() === 'ACTIVE' || paymentStatus.toUpperCase() === 'SUCCESS') {
+          if (user.subscriptionStatus === 'none') {
+            user.subscriptionStatus = 'trial' as const;
+            await user.save();
+          }
+          await AuditLog.create({
+            userId: user._id, userEmail: user.email,
+            action: 'subscribed',
+            details: `Auth successful (${paymentStatus})`,
+          });
+        } else if (authStatus.toUpperCase() === 'FAILED' || paymentStatus.toUpperCase() === 'FAILED') {
           await AuditLog.create({
             userId: user._id, userEmail: user.email,
             action: 'payment_failed',
-            details: `Card expiry reminder sent for subscription ${subscriptionId}`,
+            details: `Auth failed: ${(data.failure_details as Record<string, unknown>)?.failure_reason || 'Unknown'}`,
           });
         }
-        console.log(`Card expiry reminder for subscription ${subscriptionId}`);
         break;
       }
 
-      // ─── Payment Notification Initiated (upcoming payment) ───
+      // ═══════════════════════════════════════════════════
+      // 3. SUBSCRIPTION_PAYMENT_SUCCESS
+      //    Recurring payment charged successfully.
+      // ═══════════════════════════════════════════════════
+      case 'SUBSCRIPTION_PAYMENT_SUCCESS': {
+        const user = await findUser(data);
+        if (!user) break;
+
+        user.subscriptionStatus = 'active' as const;
+        await user.save();
+
+        await Payment.create({
+          userId: user._id,
+          cashfreeSubscriptionId: subscriptionId,
+          amount: Number(data.payment_amount) || 0,
+          status: 'success',
+          paidAt: new Date(),
+          cfPaymentId: String(data.cf_payment_id || data.payment_id || ''),
+        });
+
+        await AuditLog.create({
+          userId: user._id, userEmail: user.email,
+          action: 'payment_success',
+          details: `₹${data.payment_amount} received (${data.payment_type || 'CHARGE'})`,
+        });
+        break;
+      }
+
+      // ═══════════════════════════════════════════════════
+      // 4. SUBSCRIPTION_PAYMENT_FAILED
+      //    Recurring payment failed (insufficient funds, etc.)
+      //    Kicks user from Discord.
+      // ═══════════════════════════════════════════════════
+      case 'SUBSCRIPTION_PAYMENT_FAILED': {
+        const user = await findUser(data);
+        if (!user) break;
+
+        user.subscriptionStatus = 'expired' as const;
+        await user.save();
+
+        const failureDetails = data.failure_details as Record<string, unknown> | undefined;
+
+        await Payment.create({
+          userId: user._id,
+          cashfreeSubscriptionId: subscriptionId,
+          amount: Number(data.payment_amount) || 0,
+          status: 'failed',
+          cfPaymentId: String(data.cf_payment_id || data.payment_id || ''),
+        });
+
+        await AuditLog.create({
+          userId: user._id, userEmail: user.email,
+          action: 'payment_failed',
+          details: `Payment failed: ${failureDetails?.failure_reason || 'Unknown reason'}`,
+        });
+
+        await kickFromDiscord(user, 'Payment failed');
+        break;
+      }
+
+      // ═══════════════════════════════════════════════════
+      // 5. SUBSCRIPTION_PAYMENT_CANCELLED
+      //    A scheduled payment was cancelled (subscription itself
+      //    may also be cancelling — status change handles kick).
+      // ═══════════════════════════════════════════════════
+      case 'SUBSCRIPTION_PAYMENT_CANCELLED': {
+        const user = await findUser(data);
+        if (!user) break;
+
+        await Payment.create({
+          userId: user._id,
+          cashfreeSubscriptionId: subscriptionId,
+          amount: Number(data.payment_amount) || 0,
+          status: 'failed',
+          cfPaymentId: String(data.cf_payment_id || data.payment_id || ''),
+        });
+
+        await AuditLog.create({
+          userId: user._id, userEmail: user.email,
+          action: 'payment_failed',
+          details: 'Scheduled payment cancelled',
+        });
+        break;
+      }
+
+      // ═══════════════════════════════════════════════════
+      // 6. SUBSCRIPTION_PAYMENT_NOTIFICATION_INITIATED
+      //    Cashfree notified the customer about an upcoming charge.
+      //    Just log — no action needed.
+      // ═══════════════════════════════════════════════════
       case 'SUBSCRIPTION_PAYMENT_NOTIFICATION_INITIATED': {
-        const user = await findUserBySub(data);
+        const user = await findUser(data);
+        console.log(`[Webhook] Payment notification sent for sub ${subscriptionId}`);
         if (user) {
           await AuditLog.create({
             userId: user._id, userEmail: user.email,
             action: 'subscribed',
-            details: `Payment notification initiated for subscription ${subscriptionId}`,
+            details: `Payment notification sent (upcoming charge ₹${data.payment_amount || '?'})`,
           });
         }
-        console.log(`Payment notification initiated for subscription ${subscriptionId}`);
         break;
       }
 
-      // ─── Refund Status ───
+      // ═══════════════════════════════════════════════════
+      // 7. SUBSCRIPTION_REFUND_STATUS
+      //    Refund processed. If successful, kick user.
+      // ═══════════════════════════════════════════════════
       case 'SUBSCRIPTION_REFUND_STATUS': {
-        const refundStatus = (data.refund_status || sub.refund_status || '') as string;
-        const user = await findUserBySub(data);
+        const refundStatus = (data.refund_status as string) || '';
+        const refundAmount = data.refund_amount || 0;
 
-        console.log(`Refund status for subscription ${subscriptionId}: ${refundStatus}`);
+        console.log(`[Webhook] Refund ${refundStatus} — ₹${refundAmount}`);
+
+        // Refund events don't have subscription_details, find user by payment
+        const cfPaymentId = data.cf_payment_id as string;
+        let user = null;
+        if (cfPaymentId) {
+          const payment = await Payment.findOne({ cfPaymentId });
+          if (payment) user = await User.findById(payment.userId);
+        }
 
         if (user) {
           await AuditLog.create({
             userId: user._id, userEmail: user.email,
             action: 'payment_failed',
-            details: `Refund ${refundStatus} for subscription ${subscriptionId}`,
+            details: `Refund ${refundStatus}: ₹${refundAmount}`,
           });
 
-          // If refund is successful, kick from Discord
-          if (['SUCCESS', 'PROCESSED'].includes(refundStatus.toUpperCase())) {
-            user.subscriptionStatus = 'cancelled';
+          if (refundStatus.toUpperCase() === 'SUCCESS') {
+            user.subscriptionStatus = 'cancelled' as const;
             await user.save();
-            await kickFromDiscord(user);
+            await kickFromDiscord(user, 'Refund processed');
           }
+        }
+        break;
+      }
+
+      // ═══════════════════════════════════════════════════
+      // 8. SUBSCRIPTION_CARD_EXPIRY_REMINDER
+      //    Customer's card is about to expire. Log only.
+      // ═══════════════════════════════════════════════════
+      case 'SUBSCRIPTION_CARD_EXPIRY_REMINDER': {
+        console.log(`[Webhook] Card expiry reminder for sub ${subscriptionId}`);
+        const user = await findUser(data);
+        if (user) {
+          await AuditLog.create({
+            userId: user._id, userEmail: user.email,
+            action: 'payment_failed',
+            details: 'Card expiry reminder — customer notified to update payment method',
+          });
         }
         break;
       }
 
       default:
-        console.log('Unhandled webhook event:', eventType, JSON.stringify(data).slice(0, 200));
+        console.log(`[Webhook] Unhandled event: ${eventType}`, JSON.stringify(data).slice(0, 300));
     }
 
+    // Always return 200 to Cashfree
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Webhook error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('[Webhook] Error:', error);
+    // Still return 200 to prevent Cashfree retries on our errors
+    return NextResponse.json({ success: true });
   }
 }
