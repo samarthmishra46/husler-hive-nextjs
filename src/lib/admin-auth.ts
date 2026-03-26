@@ -1,5 +1,7 @@
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
+import dbConnect from '@/lib/mongodb';
+import AdminSession from '@/models/AdminSession';
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL!;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD!;
@@ -41,26 +43,34 @@ export async function clearAdminCookie() {
   cookieStore.delete(COOKIE_NAME);
 }
 
-// Simple in-memory session store (in production use Redis or DB)
-const sessions = new Map<string, { hashedToken: string; expiresAt: number }>();
-
-export function createSession(token: string) {
+// MongoDB-backed session store (works with Vercel serverless)
+export async function createSession(token: string) {
+  await dbConnect();
   const hashed = hashToken(token);
-  sessions.set(hashed, {
-    hashedToken: hashed,
-    expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-  });
+  await AdminSession.findOneAndUpdate(
+    { hashedToken: hashed },
+    {
+      hashedToken: hashed,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    },
+    { upsert: true }
+  );
 }
 
-export function validateSession(token: string): boolean {
+export async function validateSession(token: string): Promise<boolean> {
+  await dbConnect();
   const hashed = hashToken(token);
-  const session = sessions.get(hashed);
-  if (!session) return false;
-  if (Date.now() > session.expiresAt) {
-    sessions.delete(hashed);
-    return false;
-  }
-  return true;
+  const session = await AdminSession.findOne({
+    hashedToken: hashed,
+    expiresAt: { $gt: new Date() },
+  });
+  return !!session;
+}
+
+export async function clearSession(token: string) {
+  await dbConnect();
+  const hashed = hashToken(token);
+  await AdminSession.deleteOne({ hashedToken: hashed });
 }
 
 export async function isAdminAuthenticated(): Promise<boolean> {
