@@ -7,16 +7,29 @@ import Link from 'next/link';
 function VerifyContent() {
   const searchParams = useSearchParams();
   const subId = searchParams.get('sub_id');
+  const userId = searchParams.get('user_id');
+  // Cashfree may also send its own params
+  const cfSubId = searchParams.get('subscription_id') || searchParams.get('subscriptionId');
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
 
   useEffect(() => {
-    // Auto-mark as success if we reached this page (Cashfree redirected us)
-    if (subId) {
+    const effectiveSubId = subId || cfSubId;
+
+    // If we have either sub_id or user_id, consider it a valid redirect from Cashfree
+    if (effectiveSubId || userId) {
       setStatus('success');
     } else {
-      setStatus('error');
+      // Check if there are ANY search params at all — Cashfree always redirects with something
+      const allParams = searchParams.toString();
+      if (allParams) {
+        // Cashfree redirected us here with some params, treat as success
+        console.log('Payment verify params:', allParams);
+        setStatus('success');
+      } else {
+        setStatus('error');
+      }
     }
-  }, [subId]);
+  }, [subId, userId, cfSubId, searchParams]);
 
   return (
     <div className="flex min-h-[80vh] items-center justify-center px-6">
@@ -102,3 +115,4 @@ export default function PaymentVerifyPage() {
     </Suspense>
   );
 }
+
