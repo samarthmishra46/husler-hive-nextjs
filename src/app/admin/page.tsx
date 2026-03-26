@@ -37,57 +37,50 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="flex min-h-[80vh] items-center justify-center px-6">
-      <div className="w-full max-w-sm">
-        <div className="animate-fade-in text-center">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-500/25">
-            <span className="text-2xl font-bold text-black">H</span>
+    <div style={{ display: 'flex', minHeight: '80vh', alignItems: 'center', justifyContent: 'center', padding: '0 24px', paddingTop: '80px' }}>
+      <div style={{ width: '100%', maxWidth: '400px' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ margin: '0 auto 24px', width: '64px', height: '64px', borderRadius: '16px', background: 'linear-gradient(135deg, var(--purple), #c026d3)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(124,58,237,0.3)' }}>
+            <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff' }}>H</span>
           </div>
-          <h1 className="text-2xl font-bold text-white">Admin Login</h1>
-          <p className="mt-2 text-gray-400">Access the admin dashboard</p>
+          <h1 className="section-title" style={{ marginBottom: '4px' }}>Admin Login</h1>
+          <p className="section-body">Access the admin dashboard</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-          <div>
-            <label htmlFor="admin-email" className="mb-1.5 block text-sm font-medium text-gray-300">
-              Email
-            </label>
+        <form onSubmit={handleSubmit} className="subscribe-form" style={{ marginTop: '32px' }}>
+          <div className="subscribe-field">
+            <label htmlFor="admin-email">Email</label>
             <input
               id="admin-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="admin@hustlershive.com"
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-500 outline-none transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20"
               required
             />
           </div>
 
-          <div>
-            <label htmlFor="admin-password" className="mb-1.5 block text-sm font-medium text-gray-300">
-              Password
-            </label>
+          <div className="subscribe-field">
+            <label htmlFor="admin-password">Password</label>
             <input
               id="admin-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-gray-500 outline-none transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20"
               required
             />
           </div>
 
           {error && (
-            <div className="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-300 ring-1 ring-red-500/20">
-              {error}
-            </div>
+            <div className="subscribe-error">{error}</div>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-3.5 font-semibold text-black shadow-lg shadow-amber-500/25 transition-all hover:shadow-amber-500/40 hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
+            className="btn-primary"
+            style={{ width: '100%', justifyContent: 'center', fontSize: '0.88rem', padding: '13px 24px', opacity: loading ? 0.6 : 1 }}
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>

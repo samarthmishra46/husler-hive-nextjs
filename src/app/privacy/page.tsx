@@ -1,47 +1,60 @@
 export default function PrivacyPage() {
   return (
-    <div className="mx-auto max-w-3xl px-6 py-16">
-      <h1 className="mb-8 text-3xl font-bold text-white">Privacy Policy</h1>
-      <div className="space-y-6 text-gray-400 leading-relaxed">
-        <p>
-          At Hustlers Hive, we are committed to protecting your privacy. This policy outlines how we
-          collect, use, and safeguard your information.
-        </p>
+    <div className="landing-section" style={{ paddingTop: '100px', minHeight: '80vh' }}>
+      <div style={{ maxWidth: '720px', margin: '0 auto' }}>
+        <p className="section-eyebrow">Legal</p>
+        <h1 className="section-title">Privacy <span className="hl">Policy</span></h1>
+        <div style={{ marginTop: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <p className="section-body">
+            At Hustlers Hive, we are committed to protecting your privacy. This policy outlines how we
+            collect, use, and safeguard your information.
+          </p>
 
-        <h2 className="text-xl font-semibold text-white">1. Information We Collect</h2>
-        <p>
-          We collect the following information when you subscribe: your email address, mobile number,
-          and Discord account details (username and ID). Payment information is processed securely by
-          our payment partner Cashfree and is not stored on our servers.
-        </p>
+          <div className="amenity-card">
+            <h4 className="amenity-title">1. Information We Collect</h4>
+            <p className="amenity-desc">
+              We collect the following information when you subscribe: your email address, mobile number,
+              and Discord account details. Payment information is processed securely by
+              our payment partner Cashfree and is not stored on our servers.
+            </p>
+          </div>
 
-        <h2 className="text-xl font-semibold text-white">2. How We Use Your Information</h2>
-        <p>
-          Your information is used to manage your subscription, provide access to the private
-          Discord channel, process payments, and communicate important updates about your account.
-        </p>
+          <div className="amenity-card">
+            <h4 className="amenity-title">2. How We Use Your Information</h4>
+            <p className="amenity-desc">
+              Your information is used to manage your subscription, provide access to the private
+              Discord channel, process payments, and communicate important updates about your account.
+            </p>
+          </div>
 
-        <h2 className="text-xl font-semibold text-white">3. Data Security</h2>
-        <p>
-          We implement appropriate security measures to protect your personal information. Your data
-          is stored securely and is only accessible to authorized personnel.
-        </p>
+          <div className="amenity-card">
+            <h4 className="amenity-title">3. Data Security</h4>
+            <p className="amenity-desc">
+              We implement appropriate security measures to protect your personal information. Your data
+              is stored securely and is only accessible to authorized personnel.
+            </p>
+          </div>
 
-        <h2 className="text-xl font-semibold text-white">4. Third-Party Services</h2>
-        <p>
-          We use Discord for community access and Cashfree for payment processing. These services
-          have their own privacy policies that govern the data they collect.
-        </p>
+          <div className="amenity-card">
+            <h4 className="amenity-title">4. Third-Party Services</h4>
+            <p className="amenity-desc">
+              We use Discord for community access and Cashfree for payment processing. These services
+              have their own privacy policies that govern the data they collect.
+            </p>
+          </div>
 
-        <h2 className="text-xl font-semibold text-white">5. Contact</h2>
-        <p>
-          If you have any questions about this privacy policy, please contact us through our Discord
-          server or email.
-        </p>
+          <div className="amenity-card">
+            <h4 className="amenity-title">5. Contact</h4>
+            <p className="amenity-desc">
+              If you have any questions about this privacy policy, please contact us through our Discord
+              server or email.
+            </p>
+          </div>
 
-        <p className="text-sm text-gray-500 pt-4">
-          Last updated: March 2026
-        </p>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', paddingTop: '8px' }}>
+            Last updated: March 2026
+          </p>
+        </div>
       </div>
     </div>
   );
