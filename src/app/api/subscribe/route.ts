@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       customerEmail: email,
       customerPhone: mobile,
       trialDays,
-      returnUrl: `${process.env.CASHFREE_RETURN_URL}?sub_id=${subscriptionId}&user_id=${user._id}`,
+      returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/return?sub_id=${subscriptionId}&user_id=${user._id}`,
     });
 
     if (result.status === 'ERROR' || result.code) {
