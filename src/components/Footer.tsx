@@ -6,14 +6,13 @@ export default function Footer() {
       <div className="footer-top">
         <div className="footer-brand">
           <Link href="/#hero" className="footer-logo">Hustler's Hive</Link>
-          <p>Co-Working Space for Builders.<br />Arumbakkam, Chennai.</p>
+          <p>Trade Exactly Like <br />Your Mentors Do.</p>
         </div>
         <div className="footer-col">
           <h5>Navigate</h5>
           <ul>
             <li><Link href="/#about">About</Link></li>
-            <li><Link href="/#space">The Space</Link></li>
-            <li><Link href="/#amenities">Amenities</Link></li>
+           
             <li><Link href="/#pricing">Pricing</Link></li>
             <li><Link href="/#faq">FAQ</Link></li>
           </ul>

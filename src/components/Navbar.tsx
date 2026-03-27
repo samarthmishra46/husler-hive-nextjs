@@ -14,7 +14,7 @@ export default function Navbar() {
         <li><Link href="/#faq">FAQ</Link></li>
       </ul>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <Link href="/admin" className="nav-admin">Admin</Link>
+       
         <Link href="/#pricing" className="nav-cta">Join Free Trial →</Link>
       </div>
     </nav>

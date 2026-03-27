@@ -152,6 +152,7 @@ const certificates = [
     { q: 'What if I lose money?', a: 'Every trade includes strict risk management. Mentors teach you position sizing and stop-loss placement live. You\'ll learn to manage risk before chasing profits.' },
     { q: 'Can I watch recordings if I miss a session?', a: 'Yes! Every live session is recorded and available in our library. You get lifetime access to all recordings as a member.' },
     { q: 'Is the free trial really free?', a: 'Yes, 100% free. No credit card required. Join one live session, see the community in action, and decide if it\'s right for you.' },
+    { q: 'How can I Pause/Cancel the Subscription?', a: 'You can Pause/Cancel the Subscription anytime from your UPI App or Bank Account App.' },
   ];
 
   return (
@@ -166,10 +167,10 @@ const certificates = [
           Trade Exactly Like<br />
           Your <span className="highlight">Mentors</span> Do.
         </h1>
-        <p className="hero-sub" style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--purple)', marginTop: '12px' }}>
+        <p className="hero-sub" style={{ fontSize: '1.9rem', fontWeight: 600, color: 'var(--purple)', marginTop: '20px' }}>
           Live. Tonight. 7-8 PM.
         </p>
-        <p className="hero-sub" style={{ marginTop: '8px' }}>
+        <p className="hero-sub" style={{ marginTop: '12px' }}>
           200+ traders trading together. Same setups. Same entries. Same exits.
           You watch. You learn. You trade with them.
         </p>
@@ -449,21 +450,7 @@ const certificates = [
           </p>
         </div>
         <div className="pricing-grid reveal">
-          {/* Free Trial */}
-          <div className="price-card">
-            <div className="price-card-name">Free Trial</div>
-            <div className="price-card-amount">₹0</div>
-            <div className="price-card-period">/1 Session</div>
-            <ul className="price-card-features">
-              <li><span className="feat-dot">✓</span> 1 Free Live Session</li>
-              <li><span className="feat-dot">✓</span> Access Community Chat</li>
-              <li><span className="feat-dot">✓</span> See How It Works</li>
-              <li><span className="feat-dot">✓</span> No Credit Card Required</li>
-            </ul>
-            <button onClick={() => setShowForm(true)} className="btn-outline price-card-btn">
-              Start Free Trial
-            </button>
-          </div>
+          
 
           {/* Monthly */}
           <div className="price-card price-card-featured">
@@ -472,7 +459,7 @@ const certificates = [
             <div className="price-card-amount">₹4,999</div>
             <div className="price-card-period">/month</div>
             <ul className="price-card-features">
-              <li><span className="feat-dot">✓</span> Unlimited Live Sessions</li>
+               <li><span className="feat-dot">✓</span> 7 days Free Trial</li>
               <li><span className="feat-dot">✓</span> Private Discord Access</li>
               <li><span className="feat-dot">✓</span> Recorded Sessions Library</li>
               <li><span className="feat-dot">✓</span> 24/7 Mentor Support</li>
@@ -489,7 +476,7 @@ const certificates = [
             <div className="price-card-amount">₹12,997</div>
             <div className="price-card-period">Save 15% (₹14,997)</div>
             <ul className="price-card-features">
-              <li><span className="feat-dot">✓</span> Unlimited Live Sessions</li>
+              <li><span className="feat-dot">✓</span> 7 days Free Trial</li>
               <li><span className="feat-dot">✓</span> Private Discord Access</li>
               <li><span className="feat-dot">✓</span> Recorded Sessions Library</li>
               <li><span className="feat-dot">✓</span> 24/7 Mentor Support</li>
@@ -619,7 +606,7 @@ const certificates = [
           JOIN TONIGHT&apos;S LIVE TRADING SESSION
         </button>
         <p style={{ marginTop: '20px', fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', maxWidth: '520px', margin: '20px auto 0' }}>
-          Free for first session • No payment. No card required. • Trade alongside mentors • 200+ traders entering together
+          Free for 7 days • No payment required. • Trade alongside mentors • 200+ traders entering together
         </p>
       </section>
 
