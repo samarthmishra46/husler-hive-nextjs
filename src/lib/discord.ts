@@ -1,6 +1,6 @@
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN!;
 const DISCORD_GUILD_ID = process.env.DISCORD_GUILD_ID!;
-const DISCORD_PRIVATE_CHANNEL_ID = process.env.DISCORD_PRIVATE_CHANNEL_ID!;
+const DISCORD_PAID_ROLE_ID = process.env.DISCORD_PAID_ROLE_ID!;
 
 const DISCORD_API = 'https://discord.com/api/v10';
 
@@ -40,39 +40,23 @@ export async function addUserToGuild(
 }
 
 /**
- * Add a user to the private channel by creating a permission overwrite
+ * Add the paid member role to a user
  */
-export async function addUserToChannel(discordUserId: string) {
+export async function addRoleToUser(discordUserId: string) {
   return discordBotFetch(
-    `/channels/${DISCORD_PRIVATE_CHANNEL_ID}/permissions/${discordUserId}`,
+    `/guilds/${DISCORD_GUILD_ID}/members/${discordUserId}/roles/${DISCORD_PAID_ROLE_ID}`,
     {
       method: 'PUT',
-      body: JSON.stringify({
-        allow: '1024', // VIEW_CHANNEL permission
-        type: 1, // member type
-      }),
     }
   );
 }
 
 /**
- * Remove a user's access to the private channel
+ * Remove the paid member role from a user
  */
-export async function removeUserFromChannel(discordUserId: string) {
+export async function removeRoleFromUser(discordUserId: string) {
   return discordBotFetch(
-    `/channels/${DISCORD_PRIVATE_CHANNEL_ID}/permissions/${discordUserId}`,
-    {
-      method: 'DELETE',
-    }
-  );
-}
-
-/**
- * Kick a user from the guild entirely
- */
-export async function kickUserFromGuild(discordUserId: string) {
-  return discordBotFetch(
-    `/guilds/${DISCORD_GUILD_ID}/members/${discordUserId}`,
+    `/guilds/${DISCORD_GUILD_ID}/members/${discordUserId}/roles/${DISCORD_PAID_ROLE_ID}`,
     {
       method: 'DELETE',
     }

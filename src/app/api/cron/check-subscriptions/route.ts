@@ -3,7 +3,7 @@ import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import AuditLog from '@/models/AuditLog';
 import { getSubscriptionStatus } from '@/lib/cashfree';
-import { removeUserFromChannel, kickUserFromGuild } from '@/lib/discord';
+import { removeRoleFromUser } from '@/lib/discord';
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
         const status = subStatus.status || subStatus.subscription_status;
 
-        // If subscription is not active, kick the user
+        // If subscription is not active, remove role
         if (
           status === 'CANCELLED' ||
           status === 'EXPIRED' ||
@@ -43,11 +43,10 @@ export async function GET(request: NextRequest) {
         ) {
           if (user.discordId) {
             try {
-              await removeUserFromChannel(user.discordId);
-              await kickUserFromGuild(user.discordId);
+              await removeRoleFromUser(user.discordId);
             } catch (discordErr) {
               console.error(
-                `Error kicking ${user.email} from Discord:`,
+                `Error removing role from ${user.email}:`,
                 discordErr
               );
             }

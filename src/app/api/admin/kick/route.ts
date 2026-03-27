@@ -3,7 +3,7 @@ import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import AuditLog from '@/models/AuditLog';
 import { isAdminAuthenticated } from '@/lib/admin-auth';
-import { removeUserFromChannel, kickUserFromGuild } from '@/lib/discord';
+import { removeRoleFromUser } from '@/lib/discord';
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,17 +25,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Kick from Discord if connected
+    // Remove paid role from Discord if connected
     if (user.discordId) {
       try {
-        await removeUserFromChannel(user.discordId);
+        await removeRoleFromUser(user.discordId);
       } catch (err) {
-        console.error('Error removing from channel:', err);
-      }
-      try {
-        await kickUserFromGuild(user.discordId);
-      } catch (err) {
-        console.error('Error kicking from guild:', err);
+        console.error('Error removing role:', err);
       }
     }
 

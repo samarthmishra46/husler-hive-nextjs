@@ -6,7 +6,7 @@ import {
   exchangeCodeForToken,
   getDiscordUser,
   addUserToGuild,
-  addUserToChannel,
+  addRoleToUser,
 } from '@/lib/discord';
 
 export async function GET(request: NextRequest) {
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
       discordUser.username + (discordUser.discriminator !== '0' ? `#${discordUser.discriminator}` : '');
     user.discordAccessToken = accessToken;
 
-    // Add user to guild and channel
+    // Add user to guild and assign paid role
     try {
       await addUserToGuild(discordUser.id, accessToken);
     } catch (err) {
@@ -70,11 +70,11 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      await addUserToChannel(discordUser.id);
+      await addRoleToUser(discordUser.id);
       user.channelAdded = true;
       user.joinedAt = new Date();
     } catch (err) {
-      console.error('Error adding to channel:', err);
+      console.error('Error adding role to user:', err);
     }
 
     await user.save();

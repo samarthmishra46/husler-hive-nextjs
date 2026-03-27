@@ -4,7 +4,7 @@ import User from '@/models/User';
 import Payment from '@/models/Payment';
 import AuditLog from '@/models/AuditLog';
 import { verifyWebhookSignature } from '@/lib/cashfree';
-import { removeUserFromChannel, kickUserFromGuild } from '@/lib/discord';
+import { removeRoleFromUser } from '@/lib/discord';
 
 // ─── Helpers ────────────────────────────────────────────────
 
@@ -29,21 +29,20 @@ async function findUser(data: Record<string, unknown>) {
   return User.findOne({ cashfreeSubscriptionId: subscriptionId });
 }
 
-/** Kick user from Discord channel + guild */
-async function kickFromDiscord(
+/** Remove paid role from user in Discord */
+async function revokeDiscordAccess(
   user: InstanceType<typeof User>,
   reason: string
 ) {
   if (!user.discordId || !user.channelAdded) return;
-  try { await removeUserFromChannel(user.discordId); } catch (e) { console.error('Remove from channel error:', e); }
-  try { await kickUserFromGuild(user.discordId); } catch (e) { console.error('Kick from guild error:', e); }
+  try { await removeRoleFromUser(user.discordId); } catch (e) { console.error('Remove role error:', e); }
   user.channelAdded = false;
   user.leftAt = new Date();
   await user.save();
   await AuditLog.create({
     userId: user._id,
     userEmail: user.email,
-    action: 'kicked',
+    action: 'role_removed',
     details: reason,
   });
 }
@@ -112,7 +111,7 @@ export async function POST(request: NextRequest) {
             details: `Subscription status: ${newStatus}`,
           });
 
-          await kickFromDiscord(user, `Subscription ${newStatus}`);
+          await revokeDiscordAccess(user, `Subscription ${newStatus}`);
 
         } else if (newStatus.toUpperCase() === 'ACTIVE') {
           // Subscription is active
@@ -226,7 +225,7 @@ export async function POST(request: NextRequest) {
           details: `Payment failed: ${failureDetails?.failure_reason || 'Unknown reason'}`,
         });
 
-        await kickFromDiscord(user, 'Payment failed');
+        await revokeDiscordAccess(user, 'Payment failed');
         break;
       }
 
@@ -301,7 +300,7 @@ export async function POST(request: NextRequest) {
           if (refundStatus.toUpperCase() === 'SUCCESS') {
             user.subscriptionStatus = 'cancelled' as const;
             await user.save();
-            await kickFromDiscord(user, 'Refund processed');
+            await revokeDiscordAccess(user, 'Refund processed');
           }
         }
         break;
