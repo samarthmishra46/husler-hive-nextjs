@@ -94,15 +94,16 @@ export async function POST(request: NextRequest) {
       paymentLink:
         result.subscription_meta?.payment_link || // New API format
         result.data?.payment_link ||
+        result.payment_link ||
         result.authLink ||
         result.authorizationLink ||
         result.authorization_link ||
         result.authorizationDetails?.authLink ||
         result.authorizationDetails?.authorizationLink ||
         result.authorisation_details?.payment_link ||
-        // Construct from session ID if available
+        // Construct from session ID if available - correct URL format
         (result.subscription_session_id 
-          ? `https://payments.cashfree.com/subscription?session_id=${result.subscription_session_id}`
+          ? `https://payments.cashfree.com/subscriptions/sessions/${result.subscription_session_id}`
           : null),
       trialDays,
       plan,
