@@ -1,7 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { PlanType } from '@/app/page';
+
+declare global {
+  interface Window {
+    Cashfree: (config: { mode: string }) => {
+      subscriptionsCheckout: (options: {
+        subsSessionId: string;
+        redirectTarget?: string;
+      }) => Promise<{ error?: { message: string } }>;
+    };
+  }
+}
 
 const PLAN_DETAILS: Record<PlanType, { name: string; price: string; period: string }> = {
   monthly: { name: 'Monthly Membership', price: '₹4,999', period: '/month' },
@@ -18,8 +29,22 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
   const [mobile, setMobile] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [sdkLoaded, setSdkLoaded] = useState(false);
 
   const planInfo = PLAN_DETAILS[plan];
+
+  // Load Cashfree SDK
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !window.Cashfree) {
+      const script = document.createElement('script');
+      script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+      script.async = true;
+      script.onload = () => setSdkLoaded(true);
+      document.body.appendChild(script);
+    } else {
+      setSdkLoaded(true);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,10 +83,22 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
         throw new Error(data.error || 'Something went wrong');
       }
 
-      if (data.paymentLink) {
-        window.location.href = data.paymentLink;
+      if (data.subscriptionSessionId) {
+        // Use Cashfree SDK for subscription checkout
+        const cashfree = window.Cashfree({
+          mode: 'production' // Production environment
+        });
+
+        const result = await cashfree.subscriptionsCheckout({
+          subsSessionId: data.subscriptionSessionId,
+          redirectTarget: '_self'
+        });
+
+        if (result.error) {
+          setError(result.error.message || 'Payment failed. Please try again.');
+        }
       } else {
-        setError('Failed to get payment link. Please try again.');
+        setError('Failed to initialize payment. Please try again.');
       }
     } catch (err) {
       setError(
