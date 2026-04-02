@@ -3,9 +3,12 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import SubscribeForm from '@/components/SubscribeForm';
 
+export type PlanType = 'monthly' | 'quarterly';
+
 export default function Home() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<PlanType>('monthly');
   const [videoSlide, setVideoSlide] = useState(0);
   const [imgSlide, setImgSlide] = useState(0);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
@@ -465,7 +468,7 @@ const certificates = [
               <li><span className="feat-dot">✓</span> 24/7 Mentor Support</li>
               <li><span className="feat-dot">✓</span> Trade Reviews</li>
             </ul>
-            <button onClick={() => setShowForm(true)} className="btn-primary price-card-btn">
+            <button onClick={() => { setSelectedPlan('monthly'); setShowForm(true); }} className="btn-primary price-card-btn">
               Join Monthly
             </button>
           </div>
@@ -483,7 +486,7 @@ const certificates = [
               <li><span className="feat-dot">✓</span> Personal Trade Reviews</li>
               <li><span className="feat-dot">✓</span> Best for Serious Traders</li>
             </ul>
-            <button onClick={() => setShowForm(true)} className="btn-primary price-card-btn">
+            <button onClick={() => { setSelectedPlan('quarterly'); setShowForm(true); }} className="btn-primary price-card-btn">
               Get Bundle
             </button>
           </div>
@@ -611,7 +614,7 @@ const certificates = [
       </section>
 
       {/* Subscribe Modal */}
-      {showForm && <SubscribeForm onClose={() => setShowForm(false)} />}
+      {showForm && <SubscribeForm plan={selectedPlan} onClose={() => setShowForm(false)} />}
     </>
   );
 }

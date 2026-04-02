@@ -8,6 +8,7 @@ export interface IUserDocument extends Document {
   discordAccessToken?: string;
   cashfreeSubscriptionId?: string;
   subscriptionStatus: 'none' | 'trial' | 'active' | 'cancelled' | 'expired';
+  plan?: 'monthly' | 'quarterly';
   trialUsed: boolean;
   channelAdded: boolean;
   joinedAt?: Date;
@@ -28,6 +29,11 @@ const UserSchema = new Schema<IUserDocument>(
       type: String,
       enum: ['none', 'trial', 'active', 'cancelled', 'expired'],
       default: 'none',
+    },
+    plan: {
+      type: String,
+      enum: ['monthly', 'quarterly'],
+      default: 'monthly',
     },
     trialUsed: { type: Boolean, default: false },
     channelAdded: { type: Boolean, default: false },

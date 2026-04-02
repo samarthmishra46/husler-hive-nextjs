@@ -10,6 +10,11 @@ function VerifyContent() {
   const cfSubId = searchParams.get('subscription_id') || searchParams.get('subscriptionId');
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
 
+  // Build Discord auth URL with userId for proper tracking
+  const discordAuthUrl = userId 
+    ? `/api/auth/discord?user_id=${userId}` 
+    : '/api/auth/discord';
+
   useEffect(() => {
     const effectiveSubId = subId || cfSubId;
     if (effectiveSubId || userId) {
@@ -53,7 +58,7 @@ function VerifyContent() {
 
             <div style={{ marginTop: '32px' }}>
               <a
-                href="/api/auth/discord"
+                href={discordAuthUrl}
                 style={{ display: 'inline-flex', width: '100%', alignItems: 'center', justifyContent: 'center', gap: '12px', borderRadius: '12px', background: '#5865F2', padding: '14px 24px', fontSize: '1rem', fontWeight: 600, color: '#fff', textDecoration: 'none', boxShadow: '0 8px 24px rgba(88,101,242,0.25)', transition: 'all 0.2s' }}
               >
                 <svg style={{ width: '24px', height: '24px' }} viewBox="0 0 24 24" fill="currentColor">

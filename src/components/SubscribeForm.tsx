@@ -1,16 +1,25 @@
 'use client';
 
 import { useState } from 'react';
+import type { PlanType } from '@/app/page';
+
+const PLAN_DETAILS: Record<PlanType, { name: string; price: string; period: string }> = {
+  monthly: { name: 'Monthly Membership', price: '₹4,999', period: '/month' },
+  quarterly: { name: '3-Month Bundle', price: '₹12,997', period: '(save 15%)' },
+};
 
 interface SubscribeFormProps {
+  plan: PlanType;
   onClose: () => void;
 }
 
-export default function SubscribeForm({ onClose }: SubscribeFormProps) {
+export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const planInfo = PLAN_DETAILS[plan];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +49,7 @@ export default function SubscribeForm({ onClose }: SubscribeFormProps) {
       const res = await fetch('/api/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, mobile }),
+        body: JSON.stringify({ email, mobile, plan }),
       });
 
       const data = await res.json();
@@ -73,6 +82,22 @@ export default function SubscribeForm({ onClose }: SubscribeFormProps) {
         <p className="subscribe-subheading">
           Enter your details to start your membership
         </p>
+
+        {/* Selected Plan Info */}
+        <div style={{ 
+          background: 'rgba(124,58,237,0.1)', 
+          border: '1px solid rgba(124,58,237,0.2)', 
+          borderRadius: '12px', 
+          padding: '16px', 
+          marginBottom: '20px',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontWeight: 600, color: 'var(--purple)', fontSize: '0.9rem' }}>{planInfo.name}</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text)' }}>
+            {planInfo.price} <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--text-muted)' }}>{planInfo.period}</span>
+          </div>
+          <div style={{ fontSize: '0.8rem', color: '#10b981', marginTop: '4px' }}>🎉 7-day free trial included</div>
+        </div>
 
         <form onSubmit={handleSubmit} className="subscribe-form">
           <div className="subscribe-field">

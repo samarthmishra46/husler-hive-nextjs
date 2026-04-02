@@ -1,10 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getDiscordAuthUrl } from '@/lib/discord';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Generate a random state for CSRF protection
-    const state = Math.random().toString(36).substring(2, 15);
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('user_id');
+    
+    // Generate state with userId embedded for secure user tracking
+    // Format: randomToken_userId (or just randomToken if no userId)
+    const randomToken = Math.random().toString(36).substring(2, 15);
+    const state = userId ? `${randomToken}_${userId}` : randomToken;
+    
     const authUrl = getDiscordAuthUrl(state);
 
     return NextResponse.redirect(authUrl);

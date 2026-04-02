@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   try {
     await dbConnect();
 
-    const { email, mobile } = await request.json();
+    const { email, mobile, plan = 'monthly' } = await request.json();
 
     if (!email || !mobile) {
       return NextResponse.json(
@@ -17,12 +17,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate plan type
+    if (!['monthly', 'quarterly'].includes(plan)) {
+      return NextResponse.json(
+        { error: 'Invalid plan type' },
+        { status: 400 }
+      );
+    }
+
     // Check if user already exists
     let user = await User.findOne({ email });
     let trialDays = 7;
 
-    if (user && user.trialUsed) {
-      // Returning user — no trial, charge immediately
+    if (user) {
+      // User exists in database = they've been through signup before
+      // No free trial for returning users, charge immediately
       trialDays = 0;
     }
 
@@ -33,17 +42,19 @@ export async function POST(request: NextRequest) {
         subscriptionStatus: 'none',
         trialUsed: false,
         channelAdded: false,
+        plan, // Store the plan type
       });
     } else {
-      // Update mobile if changed
+      // Update mobile and plan if changed
       user.mobile = mobile;
+      user.plan = plan;
       await user.save();
     }
 
     const subscriptionId = generateSubscriptionId();
 
     const result = await createSubscription({
-      planId: process.env.CASHFREE_PLAN_ID!,
+      planId: plan, // 'monthly' or 'quarterly' - plan config is in cashfree.ts
       subscriptionId,
       customerEmail: email,
       customerPhone: mobile,
@@ -51,7 +62,8 @@ export async function POST(request: NextRequest) {
       returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/return?sub_id=${subscriptionId}&user_id=${user._id}`,
     });
 
-    if (result.status === 'ERROR' || result.code) {
+    // Check for errors in the new API format
+    if (result.type === 'invalid_request_error' || result.code || result.status === 'ERROR') {
       console.error('Cashfree subscription error:', result);
       return NextResponse.json(
         { error: result.message || 'Failed to create subscription' },
@@ -72,19 +84,28 @@ export async function POST(request: NextRequest) {
       userId: user._id,
       userEmail: email,
       action: trialDays > 0 ? 'trial_started' : 'subscribed',
-      details: `Subscription created: ${subscriptionId}, Trial: ${trialDays} days`,
+      details: `Subscription created: ${subscriptionId}, Plan: ${plan}, Trial: ${trialDays} days`,
     });
 
     return NextResponse.json({
       success: true,
       subscriptionId,
+      // New API returns payment link in different fields
       paymentLink:
+        result.subscription_meta?.payment_link || // New API format
+        result.data?.payment_link ||
         result.authLink ||
         result.authorizationLink ||
         result.authorization_link ||
         result.authorizationDetails?.authLink ||
-        result.authorizationDetails?.authorizationLink,
+        result.authorizationDetails?.authorizationLink ||
+        result.authorisation_details?.payment_link ||
+        // Construct from session ID if available
+        (result.subscription_session_id 
+          ? `https://payments.cashfree.com/subscription?session_id=${result.subscription_session_id}`
+          : null),
       trialDays,
+      plan,
     });
   } catch (error) {
     console.error('Subscribe error:', error);
