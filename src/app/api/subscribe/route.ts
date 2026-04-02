@@ -101,9 +101,9 @@ export async function POST(request: NextRequest) {
         result.authorizationDetails?.authLink ||
         result.authorizationDetails?.authorizationLink ||
         result.authorisation_details?.payment_link ||
-        // Construct from session ID if available - correct URL format
+        // Construct from session ID if available - query param format
         (result.subscription_session_id 
-          ? `https://payments.cashfree.com/subscriptions/sessions/${result.subscription_session_id}`
+          ? `https://payments.cashfree.com/subscriptions/pay?session_id=${result.subscription_session_id}`
           : null),
       trialDays,
       plan,
