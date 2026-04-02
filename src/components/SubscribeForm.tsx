@@ -29,20 +29,25 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
   const [mobile, setMobile] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [sdkLoaded, setSdkLoaded] = useState(false);
+  const [sdkReady, setSdkReady] = useState(false);
 
   const planInfo = PLAN_DETAILS[plan];
 
-  // Load Cashfree SDK
+  // Load Cashfree SDK on mount
   useEffect(() => {
-    if (typeof window !== 'undefined' && !window.Cashfree) {
+    if (typeof window !== 'undefined') {
+      if (window.Cashfree) {
+        setSdkReady(true);
+        return;
+      }
+      
       const script = document.createElement('script');
       script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
       script.async = true;
-      script.onload = () => setSdkLoaded(true);
+      script.onload = () => {
+        setSdkReady(true);
+      };
       document.body.appendChild(script);
-    } else {
-      setSdkLoaded(true);
     }
   }, []);
 
@@ -83,20 +88,24 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
         throw new Error(data.error || 'Something went wrong');
       }
 
-      if (data.subscriptionSessionId) {
-        // Use Cashfree SDK for subscription checkout
+      if (data.subscriptionSessionId && sdkReady && window.Cashfree) {
+        // Initialize Cashfree SDK
         const cashfree = window.Cashfree({
-          mode: 'production' // Production environment
+          mode: 'production'
         });
 
+        // Open subscription checkout
         const result = await cashfree.subscriptionsCheckout({
           subsSessionId: data.subscriptionSessionId,
-          redirectTarget: '_self'
+          redirectTarget: '_blank'
         });
 
         if (result.error) {
           setError(result.error.message || 'Payment failed. Please try again.');
         }
+      } else if (data.paymentLink) {
+        // Fallback to direct redirect
+        window.location.href = data.paymentLink;
       } else {
         setError('Failed to initialize payment. Please try again.');
       }

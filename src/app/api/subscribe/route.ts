@@ -90,8 +90,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       subscriptionId,
-      // Return session ID for frontend SDK
+      // Return both session ID and direct payment link
       subscriptionSessionId: result.subscription_session_id,
+      paymentLink: `https://subscription.cashfree.com/subscription/session/${result.subscription_session_id}`,
       trialDays,
       plan,
     });
