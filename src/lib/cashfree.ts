@@ -20,27 +20,26 @@ function getHeaders(): Record<string, string> {
 }
 
 // Get first charge time in ISO 8601 format with IST timezone
-function getFirstChargeTime(days: number): string {
+function getFirstChargeTime(days: number, planIntervals: number = 1): string {
   const date = new Date();
   
   if (days === 0) {
-    // Immediate charge: set to 5 minutes from now
-    date.setMinutes(date.getMinutes() + 5);
+    // Existing user: they pay full amount upfront via authorization
+    // Next recurring charge should be after the plan interval (1 month or 3 months)
+    date.setMonth(date.getMonth() + planIntervals);
   } else {
-    // Trial: charge after N days at 10:00 AM IST
+    // New user with trial: first charge after trial period
     date.setDate(date.getDate() + days);
-    date.setHours(10, 0, 0, 0);
   }
+  
+  date.setHours(10, 0, 0, 0);
   
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
   
   // Return in ISO 8601 format with IST offset
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+05:30`;
+  return `${year}-${month}-${day}T10:00:00+05:30`;
 }
 
 // Plan configurations
@@ -88,7 +87,9 @@ export async function createSubscription(params: {
       plan_currency: 'INR',
     },
     authorization_details: {
-      authorization_amount: 1, // ₹1 auth amount
+      // Existing users (no trial): charge full plan amount upfront
+      // New users (with trial): charge ₹1 for authorization only
+      authorization_amount: params.trialDays === 0 ? planConfig.amount : 1,
       authorization_amount_refund: false,
       payment_methods: ['upi', 'card', 'enach'],
     },
@@ -100,10 +101,10 @@ export async function createSubscription(params: {
 
   // Set first charge time
   // For trial users: charge after trial period (e.g., 7 days)
-  // For existing users: charge immediately (0 days)
-  const firstChargeTime = getFirstChargeTime(params.trialDays);
+  // For existing users: they pay full amount now, next charge after plan interval
+  const firstChargeTime = getFirstChargeTime(params.trialDays, planConfig.intervals);
   body.subscription_first_charge_time = firstChargeTime;
-  console.log(`[Cashfree] Setting subscription_first_charge_time to: ${firstChargeTime} (${params.trialDays} days trial)`);
+  console.log(`[Cashfree] Setting subscription_first_charge_time to: ${firstChargeTime} (trialDays: ${params.trialDays}, auth_amount: ${params.trialDays === 0 ? planConfig.amount : 1})`);
 
   console.log('[Cashfree] Creating subscription with body:', JSON.stringify(body, null, 2));
 
