@@ -5,7 +5,7 @@ import type { PlanType } from '@/app/page';
 
 declare global {
   interface Window {
-    Cashfree: (config: { mode: string }) => {
+    Cashfree?: (config: { mode: string }) => {
       subscriptionsCheckout: (options: {
         subsSessionId: string;
         redirectTarget?: string;
@@ -36,7 +36,7 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
   // Load Cashfree SDK on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      if (window.Cashfree) {
+      if ('Cashfree' in window) {
         setSdkReady(true);
         return;
       }
