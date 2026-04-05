@@ -30,9 +30,12 @@ export async function POST(request: NextRequest) {
     let trialDays = 7;
 
     if (user) {
-      // User exists in database = they've been through signup before
-      // No free trial for returning users, charge immediately
-      trialDays = 0;
+      // Only give free trial if status is 'none' or empty (failed initial payment)
+      // For trial, active, expired, cancelled - charge immediately (no free trial)
+      if (user.subscriptionStatus && user.subscriptionStatus !== 'none') {
+        trialDays = 0;
+      }
+      // For 'none' or empty - give trial (trialDays stays 7)
     }
 
     if (!user) {

@@ -30,6 +30,8 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [sdkReady, setSdkReady] = useState(false);
+  const [showTrialExpiredPopup, setShowTrialExpiredPopup] = useState(false);
+  const [eligibleForTrial, setEligibleForTrial] = useState(true);
 
   const planInfo = PLAN_DETAILS[plan];
 
@@ -76,6 +78,38 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
     }
 
     try {
+      // First check if user is eligible for trial
+      const checkRes = await fetch('/api/check-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      const checkData = await checkRes.json();
+
+      if (!checkData.eligibleForTrial) {
+        // User not eligible for trial - show popup
+        setEligibleForTrial(false);
+        setShowTrialExpiredPopup(true);
+        setLoading(false);
+        return;
+      }
+
+      // User is eligible for trial, proceed with subscription
+      await proceedToPayment();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      );
+      setLoading(false);
+    }
+  };
+
+  const proceedToPayment = async () => {
+    setLoading(true);
+    setShowTrialExpiredPopup(false);
+    
+    try {
       const res = await fetch('/api/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -120,6 +154,81 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
 
   return (
     <div className="subscribe-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      {/* Trial Expired Popup */}
+      {showTrialExpiredPopup && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+        }}>
+          <div style={{
+            background: 'var(--card-bg, #1a1a2e)',
+            borderRadius: '16px',
+            padding: '32px',
+            maxWidth: '400px',
+            width: '90%',
+            textAlign: 'center',
+            border: '1px solid rgba(124,58,237,0.3)',
+          }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏰</div>
+            <h3 style={{ 
+              fontSize: '1.4rem', 
+              fontWeight: 700, 
+              color: 'var(--text, #fff)', 
+              marginBottom: '12px' 
+            }}>
+              Your Free Trial Has Expired
+            </h3>
+            <p style={{ 
+              color: 'var(--text-muted, #a0a0a0)', 
+              marginBottom: '24px',
+              fontSize: '0.95rem',
+              lineHeight: 1.5
+            }}>
+              You&apos;ve already used your 7-day free trial. You&apos;ll be charged {planInfo.price} immediately upon subscription.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                onClick={() => setShowTrialExpiredPopup(false)}
+                style={{
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  background: 'transparent',
+                  color: 'var(--text, #fff)',
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={proceedToPayment}
+                disabled={loading}
+                style={{
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                {loading ? 'Processing...' : 'Continue to Payment →'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="subscribe-modal">
         {/* Close button */}
         <button onClick={onClose} className="subscribe-close">✕</button>
