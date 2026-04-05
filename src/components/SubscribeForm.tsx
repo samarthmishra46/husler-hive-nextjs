@@ -162,32 +162,32 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(0,0,0,0.8)',
+          background: 'rgba(0,0,0,0.5)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 9999,
         }}>
           <div style={{
-            background: 'var(--card-bg, #1a1a2e)',
+            background: '#ffffff',
             borderRadius: '16px',
             padding: '32px',
             maxWidth: '400px',
             width: '90%',
             textAlign: 'center',
-            border: '1px solid rgba(124,58,237,0.3)',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
           }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏰</div>
             <h3 style={{ 
               fontSize: '1.4rem', 
               fontWeight: 700, 
-              color: 'var(--text, #fff)', 
+              color: '#1a1a2e', 
               marginBottom: '12px' 
             }}>
               Your Free Trial Has Expired
             </h3>
             <p style={{ 
-              color: 'var(--text-muted, #a0a0a0)', 
+              color: '#666666', 
               marginBottom: '24px',
               fontSize: '0.95rem',
               lineHeight: 1.5
@@ -200,9 +200,9 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
                 style={{
                   padding: '12px 24px',
                   borderRadius: '8px',
-                  border: '1px solid rgba(255,255,255,0.2)',
-                  background: 'transparent',
-                  color: 'var(--text, #fff)',
+                  border: '1px solid #e0e0e0',
+                  background: '#f5f5f5',
+                  color: '#333333',
                   cursor: 'pointer',
                   fontWeight: 500,
                 }}
