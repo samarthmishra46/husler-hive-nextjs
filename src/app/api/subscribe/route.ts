@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     // Update user with subscription info
     user.cashfreeSubscriptionId = subscriptionId;
     user.subscriptionStatus = trialDays > 0 ? 'trial' : 'active';
-    user.trialUsed = true;
+    user.trialUsed = trialDays > 0;
     await user.save();
 
     // Log the event

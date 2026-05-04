@@ -7,7 +7,7 @@ export interface IUserDocument extends Document {
   discordUsername?: string;
   discordAccessToken?: string;
   cashfreeSubscriptionId?: string;
-  subscriptionStatus: 'none' | 'trial' | 'active' | 'cancelled' | 'expired';
+  subscriptionStatus: 'none' | 'trial' | 'active' | 'expired';
   plan?: 'monthly' | 'quarterly';
   trialUsed: boolean;
   channelAdded: boolean;
@@ -27,7 +27,7 @@ const UserSchema = new Schema<IUserDocument>(
     cashfreeSubscriptionId: { type: String, default: null },
     subscriptionStatus: {
       type: String,
-      enum: ['none', 'trial', 'active', 'cancelled', 'expired'],
+      enum: ['none', 'trial', 'active', 'expired'],
       default: 'none',
     },
     plan: {

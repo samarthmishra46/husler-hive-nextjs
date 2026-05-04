@@ -6,7 +6,7 @@ export interface IUser {
   discordUsername?: string;
   discordAccessToken?: string;
   cashfreeSubscriptionId?: string;
-  subscriptionStatus: 'none' | 'trial' | 'active' | 'cancelled' | 'expired';
+  subscriptionStatus: 'none' | 'trial' | 'active' | 'expired';
   trialUsed: boolean;
   channelAdded: boolean;
   joinedAt?: Date;

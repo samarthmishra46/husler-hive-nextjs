@@ -25,26 +25,52 @@ interface AuditLogEntry {
   createdAt: string;
 }
 
+interface PaymentEntry {
+  _id: string;
+  cfPaymentId: string;
+  amount: number;
+  paidAt: string;
+  userEmail: string;
+  paymentType: 'trial' | 'active';
+}
+
 interface Stats {
   totalUsers: number;
   activeUsers: number;
   trialUsers: number;
-  channelMembers: number;
-  totalPayments: number;
   totalRevenue: number;
+  monthlyRevenue: number;
 }
+
+const th: React.CSSProperties = {
+  padding: '12px 16px',
+  textAlign: 'left',
+  fontWeight: 600,
+  color: 'var(--text-muted)',
+  fontSize: '0.72rem',
+  letterSpacing: '0.06em',
+  textTransform: 'uppercase',
+};
+
+const td: React.CSSProperties = {
+  padding: '12px 16px',
+  color: 'var(--text)',
+};
 
 export default function AdminDashboardPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'logs'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'logs' | 'finance'>('overview');
   const [stats, setStats] = useState<Stats | null>(null);
   const [recentActivity, setRecentActivity] = useState<AuditLogEntry[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
+  const [payments, setPayments] = useState<PaymentEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [kickingUser, setKickingUser] = useState<string | null>(null);
+  const [paymentPeriod, setPaymentPeriod] = useState('all');
+  const [paymentType, setPaymentType] = useState('all');
 
   const handleKick = async (userId: string, email: string) => {
     if (!confirm(`Are you sure you want to kick ${email} from the Discord channel?`)) return;
@@ -100,16 +126,27 @@ export default function AdminDashboardPage() {
     } catch (error) { console.error('Error fetching logs:', error); }
   }, [router]);
 
+  const fetchPayments = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({ period: paymentPeriod, type: paymentType });
+      const res = await fetch(`/api/admin/payments?${params}`);
+      if (res.status === 401) { router.push('/admin'); return; }
+      const data = await res.json();
+      setPayments(data.payments);
+    } catch (error) { console.error('Error fetching payments:', error); }
+  }, [paymentPeriod, paymentType, router]);
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       if (activeTab === 'overview') await fetchStats();
       if (activeTab === 'users') await fetchUsers();
       if (activeTab === 'logs') await fetchLogs();
+      if (activeTab === 'finance') await fetchPayments();
       setLoading(false);
     };
     loadData();
-  }, [activeTab, fetchStats, fetchUsers, fetchLogs]);
+  }, [activeTab, fetchStats, fetchUsers, fetchLogs, fetchPayments]);
 
   useEffect(() => {
     if (activeTab === 'users') {
@@ -118,15 +155,26 @@ export default function AdminDashboardPage() {
     }
   }, [searchTerm, statusFilter, activeTab, fetchUsers]);
 
+  useEffect(() => {
+    if (activeTab === 'finance') {
+      fetchPayments();
+    }
+  }, [paymentPeriod, paymentType, activeTab, fetchPayments]);
+
   const getStatusStyle = (status: string): React.CSSProperties => {
     const base: React.CSSProperties = { display: 'inline-flex', padding: '4px 10px', borderRadius: '100px', fontSize: '0.72rem', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' };
     switch (status) {
       case 'active': return { ...base, background: 'rgba(16,185,129,0.1)', color: '#059669', border: '1px solid rgba(16,185,129,0.2)' };
       case 'trial': return { ...base, background: 'rgba(124,58,237,0.1)', color: 'var(--purple)', border: '1px solid rgba(124,58,237,0.2)' };
-      case 'cancelled': return { ...base, background: 'rgba(239,68,68,0.1)', color: '#dc2626', border: '1px solid rgba(239,68,68,0.2)' };
       case 'expired': return { ...base, background: 'rgba(107,107,138,0.1)', color: 'var(--text-muted)', border: '1px solid var(--border)' };
       default: return { ...base, background: 'var(--bg)', color: 'var(--text-muted)', border: '1px solid var(--border)' };
     }
+  };
+
+  const getPaymentTypeBadge = (type: string): React.CSSProperties => {
+    const base: React.CSSProperties = { display: 'inline-flex', padding: '3px 9px', borderRadius: '100px', fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' };
+    if (type === 'trial') return { ...base, background: 'rgba(124,58,237,0.1)', color: 'var(--purple)', border: '1px solid rgba(124,58,237,0.2)' };
+    return { ...base, background: 'rgba(16,185,129,0.1)', color: '#059669', border: '1px solid rgba(16,185,129,0.2)' };
   };
 
   const getActionColor = (action: string) => {
@@ -155,6 +203,12 @@ export default function AdminDashboardPage() {
     color: isActive ? 'var(--purple)' : 'var(--text-muted)',
   });
 
+  const selectStyle: React.CSSProperties = {
+    padding: '10px 16px', border: '1px solid var(--border)', borderRadius: '10px',
+    background: 'var(--bg)', fontSize: '0.85rem', color: 'var(--text)', outline: 'none',
+    fontFamily: 'Inter, sans-serif', cursor: 'pointer',
+  };
+
   return (
     <div className="landing-section" style={{ minHeight: '80vh', paddingTop: '100px' }}>
       <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
@@ -171,6 +225,7 @@ export default function AdminDashboardPage() {
             { id: 'overview' as const, label: 'Overview' },
             { id: 'users' as const, label: 'Users' },
             { id: 'logs' as const, label: 'Audit Logs' },
+            { id: 'finance' as const, label: 'Finance' },
           ].map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={tabStyle(activeTab === tab.id)}>
               {tab.label}
@@ -184,18 +239,16 @@ export default function AdminDashboardPage() {
           </div>
         ) : (
           <>
-            {/* Overview Tab */}
+            {/* ── Overview Tab ── */}
             {activeTab === 'overview' && stats && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-                {/* Stats grid */}
                 <div className="amenities-grid">
                   {[
                     { label: 'Total Users', value: stats.totalUsers, icon: '👥' },
                     { label: 'Active Subscribers', value: stats.activeUsers, icon: '✅' },
                     { label: 'Trial Users', value: stats.trialUsers, icon: '⏳' },
-                    { label: 'Channel Members', value: stats.channelMembers, icon: '💬' },
-                    { label: 'Total Payments', value: stats.totalPayments, icon: '💳' },
-                    { label: 'Total Revenue', value: `₹${stats.totalRevenue.toLocaleString('en-IN')}`, icon: '💰' },
+                    { label: 'All-Time Revenue', value: `₹${stats.totalRevenue.toLocaleString('en-IN')}`, icon: '💰' },
+                    { label: 'Revenue This Month', value: `₹${stats.monthlyRevenue.toLocaleString('en-IN')}`, icon: '📅' },
                   ].map((stat) => (
                     <div key={stat.label} className="amenity-card">
                       <span className="amenity-icon">{stat.icon}</span>
@@ -205,12 +258,11 @@ export default function AdminDashboardPage() {
                   ))}
                 </div>
 
-                {/* Recent Activity */}
                 <div>
                   <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text)', marginBottom: '16px' }}>Recent Activity</h2>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {recentActivity.map((log) => (
-                      <div key={log._id} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 16px', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: '10px', transition: 'all 0.2s' }}>
+                      <div key={log._id} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 16px', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: '10px' }}>
                         <span style={{ fontSize: '0.72rem', fontWeight: 600, color: getActionColor(log.action), letterSpacing: '0.04em', textTransform: 'uppercase', minWidth: '120px' }}>
                           {log.action.replace(/_/g, ' ')}
                         </span>
@@ -228,10 +280,9 @@ export default function AdminDashboardPage() {
               </div>
             )}
 
-            {/* Users Tab */}
+            {/* ── Users Tab ── */}
             {activeTab === 'users' && (
               <div>
-                {/* Filters */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '24px' }}>
                   <input
                     type="text"
@@ -241,61 +292,47 @@ export default function AdminDashboardPage() {
                     className="subscribe-field"
                     style={{ flex: 1, padding: '10px 16px', border: '1px solid var(--border)', borderRadius: '10px', background: 'var(--bg)', fontSize: '0.85rem', color: 'var(--text)', outline: 'none', fontFamily: 'Inter, sans-serif' }}
                   />
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    style={{ padding: '10px 16px', border: '1px solid var(--border)', borderRadius: '10px', background: 'var(--bg)', fontSize: '0.85rem', color: 'var(--text)', outline: 'none', fontFamily: 'Inter, sans-serif', cursor: 'pointer' }}
-                  >
+                  <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={selectStyle}>
                     <option value="all">All Statuses</option>
                     <option value="active">Active</option>
                     <option value="trial">Trial</option>
-                    <option value="cancelled">Cancelled</option>
                     <option value="expired">Expired</option>
                     <option value="none">None</option>
                   </select>
                 </div>
 
-                {/* Users table */}
                 <div style={{ overflowX: 'auto', borderRadius: '14px', border: '1px solid var(--border)', background: 'var(--white)' }}>
                   <table style={{ width: '100%', fontSize: '0.82rem', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
-                        <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Email</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Mobile</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Discord</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Status</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Channel</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Joined</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Action</th>
+                        {['Email', 'Mobile', 'Discord', 'Status', 'Channel', 'Joined', 'Action'].map((h) => (
+                          <th key={h} style={th}>{h}</th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
                       {users.map((user) => (
                         <tr key={user._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ padding: '12px 16px', color: 'var(--text)', fontWeight: 500 }}>{user.email}</td>
-                          <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>{user.mobile}</td>
-                          <td style={{ padding: '12px 16px', color: user.discordUsername ? 'var(--text-muted)' : 'var(--text-light)' }}>
+                          <td style={{ ...td, fontWeight: 500 }}>{user.email}</td>
+                          <td style={{ ...td, color: 'var(--text-muted)' }}>{user.mobile}</td>
+                          <td style={{ ...td, color: user.discordUsername ? 'var(--text-muted)' : 'var(--text-light)' }}>
                             {user.discordUsername || 'Not connected'}
                           </td>
-                          <td style={{ padding: '12px 16px' }}>
+                          <td style={td}>
                             <span style={getStatusStyle(user.subscriptionStatus)}>{user.subscriptionStatus}</span>
                           </td>
-                          <td style={{ padding: '12px 16px' }}>
-                            {user.channelAdded ? (
-                              <span style={{ color: '#059669', fontWeight: 600 }}>✓ In Channel</span>
-                            ) : (
-                              <span style={{ color: 'var(--text-light)' }}>—</span>
-                            )}
+                          <td style={td}>
+                            {user.channelAdded
+                              ? <span style={{ color: '#059669', fontWeight: 600 }}>✓ In Channel</span>
+                              : <span style={{ color: 'var(--text-light)' }}>—</span>}
                           </td>
-                          <td style={{ padding: '12px 16px', fontSize: '0.75rem', color: 'var(--text-light)' }}>
-                            {formatDate(user.joinedAt)}
-                          </td>
-                          <td style={{ padding: '12px 16px' }}>
+                          <td style={{ ...td, fontSize: '0.75rem', color: 'var(--text-light)' }}>{formatDate(user.joinedAt)}</td>
+                          <td style={td}>
                             {user.channelAdded && user.discordId ? (
                               <button
                                 onClick={() => handleKick(user._id, user.email)}
                                 disabled={kickingUser === user._id}
-                                style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', color: '#dc2626', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', opacity: kickingUser === user._id ? 0.5 : 1 }}
+                                style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', color: '#dc2626', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', opacity: kickingUser === user._id ? 0.5 : 1 }}
                               >
                                 {kickingUser === user._id ? 'Kicking...' : '🚫 Kick'}
                               </button>
@@ -318,7 +355,7 @@ export default function AdminDashboardPage() {
               </div>
             )}
 
-            {/* Logs Tab */}
+            {/* ── Audit Logs Tab ── */}
             {activeTab === 'logs' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {logs.map((log) => (
@@ -336,6 +373,70 @@ export default function AdminDashboardPage() {
                 {logs.length === 0 && (
                   <p style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>No audit logs yet</p>
                 )}
+              </div>
+            )}
+
+            {/* ── Finance Tab ── */}
+            {activeTab === 'finance' && (
+              <div>
+                {/* Filters */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '24px', alignItems: 'center' }}>
+                  <select value={paymentPeriod} onChange={(e) => setPaymentPeriod(e.target.value)} style={selectStyle}>
+                    <option value="all">All Time</option>
+                    <option value="this_month">This Month</option>
+                    <option value="last_month">Last Month</option>
+                    <option value="last_3_months">Last 3 Months</option>
+                  </select>
+                  <select value={paymentType} onChange={(e) => setPaymentType(e.target.value)} style={selectStyle}>
+                    <option value="all">All Payments</option>
+                    <option value="trial">Trial (₹1 auth)</option>
+                    <option value="active">Active (₹4999 / ₹12997)</option>
+                  </select>
+                  <span style={{ marginLeft: 'auto', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                    {payments.length} record{payments.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                {/* Payments table */}
+                <div style={{ overflowX: 'auto', borderRadius: '14px', border: '1px solid var(--border)', background: 'var(--white)' }}>
+                  <table style={{ width: '100%', fontSize: '0.82rem', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
+                        {['Payment ID', 'User Email', 'Amount', 'Type', 'Date'].map((h) => (
+                          <th key={h} style={th}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payments.map((p) => (
+                        <tr key={String(p._id)} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ ...td, fontFamily: 'monospace', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                            {p.cfPaymentId}
+                          </td>
+                          <td style={{ ...td, fontWeight: 500 }}>{p.userEmail}</td>
+                          <td style={{ ...td, fontWeight: 700, color: 'var(--purple)' }}>
+                            ₹{p.amount.toLocaleString('en-IN')}
+                          </td>
+                          <td style={td}>
+                            <span style={getPaymentTypeBadge(p.paymentType)}>
+                              {p.paymentType === 'trial' ? 'Trial Auth' : 'Subscription'}
+                            </span>
+                          </td>
+                          <td style={{ ...td, fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                            {formatDate(p.paidAt)}
+                          </td>
+                        </tr>
+                      ))}
+                      {payments.length === 0 && (
+                        <tr>
+                          <td colSpan={5} style={{ padding: '48px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                            No payments found for the selected filters
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </>

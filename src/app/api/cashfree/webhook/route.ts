@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
 
         if (INACTIVE_STATUSES.includes(newStatus.toUpperCase())) {
           // User lost access — update status and kick
-          user.subscriptionStatus = 'cancelled' as const;
+          user.subscriptionStatus = 'expired' as const;
           await user.save();
 
           await AuditLog.create({
@@ -154,12 +154,41 @@ export async function POST(request: NextRequest) {
             user.subscriptionStatus = 'trial' as const;
             await user.save();
           }
+
+          // Save the authorization payment so it appears in Finance (₹1 for trial, full amount for returning users)
+          const authAmount = Number(authDetails?.authorization_amount || (data.payment_amount as number)) || 1;
+          const authCfPaymentId = String(
+            (authDetails as Record<string, unknown>)?.cf_payment_id ||
+            data.cf_payment_id ||
+            data.cfPaymentId ||
+            ''
+          );
+          if (authCfPaymentId) {
+            const exists = await Payment.findOne({ cfPaymentId: authCfPaymentId });
+            if (!exists) {
+              await Payment.create({
+                userId: user._id,
+                cashfreeSubscriptionId: subscriptionId,
+                amount: authAmount,
+                status: 'success',
+                paidAt: new Date(),
+                cfPaymentId: authCfPaymentId,
+              });
+            }
+          }
+
           await AuditLog.create({
             userId: user._id, userEmail: user.email,
             action: 'subscribed',
             details: `Auth successful (${paymentStatus})`,
           });
         } else if (authStatus.toUpperCase() === 'FAILED' || paymentStatus.toUpperCase() === 'FAILED') {
+          // Reset so user can retry — clear the premature status set by subscribe route
+          if (['none', 'trial'].includes(user.subscriptionStatus)) {
+            user.subscriptionStatus = 'none' as const;
+            user.trialUsed = false;
+            await user.save();
+          }
           await AuditLog.create({
             userId: user._id, userEmail: user.email,
             action: 'payment_failed',
@@ -298,7 +327,7 @@ export async function POST(request: NextRequest) {
           });
 
           if (refundStatus.toUpperCase() === 'SUCCESS') {
-            user.subscriptionStatus = 'cancelled' as const;
+            user.subscriptionStatus = 'expired' as const;
             await user.save();
             await revokeDiscordAccess(user, 'Refund processed');
           }
