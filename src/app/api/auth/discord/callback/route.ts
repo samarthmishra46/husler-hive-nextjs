@@ -60,15 +60,17 @@ async function addToGuildWithRetry(
   return false;
 }
 
-// Extract userId from OAuth state parameter
-function extractUserIdFromState(state: string | null): string | null {
-  if (!state) return null;
-  // State format: randomToken_userId
-  const parts = state.split('_');
+// Extract userId and popup flag from OAuth state parameter
+// State formats: randomToken_userId  |  randomToken_userId_POPUP  |  randomToken
+function parseState(state: string | null): { userId: string | null; isPopup: boolean } {
+  if (!state) return { userId: null, isPopup: false };
+  const isPopup = state.endsWith('_POPUP');
+  const clean = isPopup ? state.slice(0, -6) : state; // strip '_POPUP'
+  const parts = clean.split('_');
   if (parts.length >= 2) {
-    return parts.slice(1).join('_'); // Handle userIds that might contain underscores
+    return { userId: parts.slice(1).join('_'), isPopup };
   }
-  return null;
+  return { userId: null, isPopup };
 }
 
 export async function GET(request: NextRequest) {
@@ -92,9 +94,12 @@ export async function GET(request: NextRequest) {
 
     await dbConnect();
 
-    // Extract userId from state parameter (passed from payment flow)
-    const stateUserId = extractUserIdFromState(state);
-    
+    // Extract userId and popup flag from state parameter
+    const { userId: stateUserId, isPopup } = parseState(state);
+    const base = process.env.NEXT_PUBLIC_APP_URL;
+    const successUrl = isPopup ? `${base}/discord/done?discord=connected` : `${base}/dashboard?discord=connected`;
+    const reconnectUrl = isPopup ? `${base}/discord/done?discord=reconnected` : `${base}/dashboard?discord=reconnected`;
+
     let user = null;
 
     // Strategy 1: Find user by userId from state (most reliable)
@@ -130,9 +135,7 @@ export async function GET(request: NextRequest) {
         
         await existingUser.save();
 
-        return NextResponse.redirect(
-          `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?discord=reconnected`
-        );
+        return NextResponse.redirect(reconnectUrl);
       }
     }
 
@@ -142,7 +145,7 @@ export async function GET(request: NextRequest) {
         discordId: null,
         subscriptionStatus: { $in: ['trial', 'active'] },
       }).sort({ updatedAt: -1 });
-      
+
       if (user) {
         console.log(`Found user by legacy fallback: ${user.email}`);
       }
@@ -151,7 +154,7 @@ export async function GET(request: NextRequest) {
     if (!user) {
       console.error('No user found for Discord connection');
       return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL}/discord/connect?error=no_subscription`
+        `${base}/discord/connect?error=no_subscription`
       );
     }
 
@@ -159,7 +162,7 @@ export async function GET(request: NextRequest) {
     if (!['trial', 'active'].includes(user.subscriptionStatus)) {
       console.error(`User ${user.email} has inactive subscription: ${user.subscriptionStatus}`);
       return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL}/discord/connect?error=no_subscription`
+        `${base}/discord/connect?error=no_subscription`
       );
     }
 
@@ -182,13 +185,11 @@ export async function GET(request: NextRequest) {
       user.joinedAt = new Date();
     } else {
       console.error('Failed to add role after retries');
-      // Still save the user but mark that channel wasn't added
       user.channelAdded = false;
     }
 
     await user.save();
 
-    // Log
     await AuditLog.create({
       userId: user._id,
       userEmail: user.email,
@@ -196,16 +197,7 @@ export async function GET(request: NextRequest) {
       details: `Discord: ${user.discordUsername} (${discordUser.id})${!roleAdded ? ' - ROLE ADD FAILED' : ''}`,
     });
 
-    // Redirect with appropriate status
-    if (!roleAdded) {
-      return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?discord=connected&warning=role_failed`
-      );
-    }
-
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?discord=connected`
-    );
+    return NextResponse.redirect(successUrl);
   } catch (error) {
     console.error('Discord callback error:', error);
     return NextResponse.redirect(

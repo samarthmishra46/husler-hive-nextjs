@@ -8,9 +8,11 @@ export async function GET(request: NextRequest) {
     
     // Generate state with userId embedded for secure user tracking
     // Format: randomToken_userId (or just randomToken if no userId)
+    const popup = searchParams.get('popup') === '1';
     const randomToken = Math.random().toString(36).substring(2, 15);
-    const state = userId ? `${randomToken}_${userId}` : randomToken;
-    
+    let state = userId ? `${randomToken}_${userId}` : randomToken;
+    if (popup) state += '_POPUP';
+
     const authUrl = getDiscordAuthUrl(state);
 
     return NextResponse.redirect(authUrl);
