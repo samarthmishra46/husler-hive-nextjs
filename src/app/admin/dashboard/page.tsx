@@ -71,6 +71,7 @@ export default function AdminDashboardPage() {
   const [kickingUser, setKickingUser] = useState<string | null>(null);
   const [paymentPeriod, setPaymentPeriod] = useState('all');
   const [paymentType, setPaymentType] = useState('all');
+  const [cleaningStale, setCleaningStale] = useState(false);
 
   const handleKick = async (userId: string, email: string) => {
     if (!confirm(`Are you sure you want to kick ${email} from the Discord channel?`)) return;
@@ -92,6 +93,28 @@ export default function AdminDashboardPage() {
       alert('Error kicking user');
     } finally {
       setKickingUser(null);
+    }
+  };
+
+  const handleCleanupStale = async () => {
+    if (!confirm('Recompute every user\'s status from their actual payments? Drop-offs become "none", trial-only payers become "trial", users who paid ₹4999+ stay/become "active".')) return;
+    setCleaningStale(true);
+    try {
+      const res = await fetch('/api/admin/cleanup-stale', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        const summary = (data.changes || [])
+          .map((c: { email: string; from: string; to: string }) => `${c.email}: ${c.from} → ${c.to}`)
+          .join('\n');
+        alert(`Scanned ${data.scanned} users. Updated ${data.changed}.${summary ? '\n\n' + summary : ''}`);
+        fetchStats();
+      } else {
+        alert(data.error || 'Cleanup failed');
+      }
+    } catch {
+      alert('Error running cleanup');
+    } finally {
+      setCleaningStale(false);
     }
   };
 
@@ -256,6 +279,22 @@ export default function AdminDashboardPage() {
                       <p className="amenity-desc" style={{ marginTop: '4px' }}>{stat.label}</p>
                     </div>
                   ))}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', padding: '16px 20px', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: '12px' }}>
+                  <div>
+                    <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>Fix inflated active count</p>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      Demotes any user marked active/trial with no successful payment (i.e. dropped off at Cashfree).
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleCleanupStale}
+                    disabled={cleaningStale}
+                    style={{ padding: '10px 18px', borderRadius: '10px', border: '1px solid rgba(124,58,237,0.3)', background: 'rgba(124,58,237,0.08)', color: 'var(--purple)', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', opacity: cleaningStale ? 0.5 : 1, whiteSpace: 'nowrap' }}
+                  >
+                    {cleaningStale ? 'Cleaning…' : 'Recompute statuses'}
+                  </button>
                 </div>
 
                 <div>

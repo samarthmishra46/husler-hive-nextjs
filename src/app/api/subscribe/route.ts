@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
-import AuditLog from '@/models/AuditLog';
 import { createSubscription, generateSubscriptionId } from '@/lib/cashfree';
 
 export async function POST(request: NextRequest) {
@@ -76,19 +75,12 @@ export async function POST(request: NextRequest) {
 
     console.log('Cashfree Success Result:', JSON.stringify(result, null, 2));
 
-    // Update user with subscription info
+    // Save the Cashfree subscription ID so the webhook can find this user later.
+    // Do NOT touch subscriptionStatus or trialUsed here — those flip only when
+    // Cashfree confirms via webhook (SUBSCRIPTION_AUTH_STATUS / SUBSCRIPTION_STATUS_CHANGED
+    // / SUBSCRIPTION_PAYMENT_SUCCESS). Setting them now would mark drop-offs as active.
     user.cashfreeSubscriptionId = subscriptionId;
-    user.subscriptionStatus = trialDays > 0 ? 'trial' : 'active';
-    user.trialUsed = trialDays > 0;
     await user.save();
-
-    // Log the event
-    await AuditLog.create({
-      userId: user._id,
-      userEmail: email,
-      action: trialDays > 0 ? 'trial_started' : 'subscribed',
-      details: `Subscription created: ${subscriptionId}, Plan: ${plan}, Trial: ${trialDays} days`,
-    });
 
     return NextResponse.json({
       success: true,

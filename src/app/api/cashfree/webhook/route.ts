@@ -47,6 +47,11 @@ async function revokeDiscordAccess(
   });
 }
 
+// A real subscription charge is ₹4999 (monthly) or ₹12997 (quarterly).
+// Anything below this is the trial auth (typically ₹1) — paying it
+// means the user authorized the mandate but hasn't been billed yet.
+const SUBSCRIPTION_MIN_AMOUNT = 4999;
+
 // Statuses that mean the user should lose access
 const INACTIVE_STATUSES = [
   'CANCELLED',
@@ -114,14 +119,20 @@ export async function POST(request: NextRequest) {
           await revokeDiscordAccess(user, `Subscription ${newStatus}`);
 
         } else if (newStatus.toUpperCase() === 'ACTIVE') {
-          // Subscription is active
-          user.subscriptionStatus = 'active' as const;
-          await user.save();
+          // Cashfree marks the subscription ACTIVE the moment auth succeeds —
+          // this happens DURING the trial period, before any real ₹4999 charge.
+          // So: only seed 'trial' if user is currently 'none'. Never promote
+          // an existing 'trial' user to 'active' here — that only happens when
+          // SUBSCRIPTION_PAYMENT_SUCCESS fires for the real recurring amount.
+          if (user.subscriptionStatus === 'none') {
+            user.subscriptionStatus = 'trial' as const;
+            await user.save();
+          }
 
           await AuditLog.create({
             userId: user._id, userEmail: user.email,
             action: 'subscribed',
-            details: 'Subscription activated',
+            details: 'Subscription activated at Cashfree',
           });
         } else if (newStatus.toUpperCase() === 'BANK_APPROVAL_PENDING') {
           // Waiting for bank — just log
@@ -150,13 +161,16 @@ export async function POST(request: NextRequest) {
         if (!user) break;
 
         if (authStatus.toUpperCase() === 'ACTIVE' || paymentStatus.toUpperCase() === 'SUCCESS') {
-          if (user.subscriptionStatus === 'none') {
-            user.subscriptionStatus = 'trial' as const;
-            await user.save();
-          }
-
           // Save the authorization payment so it appears in Finance (₹1 for trial, full amount for returning users)
           const authAmount = Number(authDetails?.authorization_amount || (data.payment_amount as number)) || 1;
+
+          // Amount-based: ₹4999+ = real subscription payment → active; otherwise trial auth → trial.
+          // Don't downgrade an already-active user.
+          if (user.subscriptionStatus !== 'active') {
+            user.subscriptionStatus = authAmount >= SUBSCRIPTION_MIN_AMOUNT ? 'active' : 'trial';
+            user.trialUsed = authAmount < SUBSCRIPTION_MIN_AMOUNT;
+            await user.save();
+          }
           const authCfPaymentId = String(
             (authDetails as Record<string, unknown>)?.cf_payment_id ||
             data.cf_payment_id ||
@@ -206,13 +220,22 @@ export async function POST(request: NextRequest) {
         const user = await findUser(data);
         if (!user) break;
 
-        user.subscriptionStatus = 'active' as const;
-        await user.save();
+        const paymentAmount = Number(data.payment_amount) || 0;
+
+        // Only the real recurring charge (₹4999+) flips a user to 'active'.
+        // Smaller success events (e.g. trial auth re-confirmations) keep them on 'trial'.
+        if (paymentAmount >= SUBSCRIPTION_MIN_AMOUNT) {
+          user.subscriptionStatus = 'active' as const;
+          await user.save();
+        } else if (user.subscriptionStatus === 'none') {
+          user.subscriptionStatus = 'trial' as const;
+          await user.save();
+        }
 
         await Payment.create({
           userId: user._id,
           cashfreeSubscriptionId: subscriptionId,
-          amount: Number(data.payment_amount) || 0,
+          amount: paymentAmount,
           status: 'success',
           paidAt: new Date(),
           cfPaymentId: String(data.cf_payment_id || data.payment_id || ''),
