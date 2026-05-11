@@ -22,11 +22,63 @@ function getSubscriptionId(data: Record<string, unknown>): string {
   );
 }
 
-/** Find user by their Cashfree subscription ID */
+/** Find user by their Cashfree subscription ID (read-only — never creates) */
 async function findUser(data: Record<string, unknown>) {
   const subscriptionId = getSubscriptionId(data);
   if (!subscriptionId) return null;
   return User.findOne({ cashfreeSubscriptionId: subscriptionId });
+}
+
+/**
+ * Find or create the User for a successful auth/payment event.
+ *
+ * The subscribe route no longer writes to MongoDB — the user record is materialized
+ * here, only when Cashfree confirms an authorization or charge succeeded. We pull
+ * email/phone/plan from the webhook's subscription_details payload.
+ */
+async function findOrCreateUser(data: Record<string, unknown>, plan: 'monthly' | 'quarterly') {
+  const subscriptionId = getSubscriptionId(data);
+  if (!subscriptionId) return null;
+
+  // 1. Already linked to this subscription — use it.
+  let user = await User.findOne({ cashfreeSubscriptionId: subscriptionId });
+  if (user) return user;
+
+  const subDetails = (data.subscription_details || {}) as Record<string, unknown>;
+  const email = String(subDetails.customer_email || '').toLowerCase().trim();
+  const phone = String(subDetails.customer_phone || '').trim();
+  if (!email) {
+    console.error('[Webhook] findOrCreateUser: no customer_email in subscription_details');
+    return null;
+  }
+
+  // 2. Returning customer (e.g. trial expired, paying again) — link this sub to them.
+  user = await User.findOne({ email });
+  if (user) {
+    user.cashfreeSubscriptionId = subscriptionId;
+    if (phone) user.mobile = phone;
+    user.plan = plan;
+    await user.save();
+    return user;
+  }
+
+  // 3. Brand new customer — create the record now that payment is confirmed.
+  return User.create({
+    email,
+    mobile: phone || 'unknown',
+    cashfreeSubscriptionId: subscriptionId,
+    subscriptionStatus: 'none',
+    trialUsed: false,
+    channelAdded: false,
+    plan,
+  });
+}
+
+/** Derive plan from Cashfree's recurring/max amount in subscription_details. */
+function getPlanFromData(data: Record<string, unknown>): 'monthly' | 'quarterly' {
+  const subDetails = (data.subscription_details || {}) as Record<string, unknown>;
+  const amount = Number(subDetails.plan_recurring_amount || subDetails.plan_max_amount || 0);
+  return amount >= 12997 ? 'quarterly' : 'monthly';
 }
 
 /** Remove paid role from user in Discord */
@@ -102,28 +154,17 @@ export async function POST(request: NextRequest) {
 
         console.log(`[Webhook] Status changed → ${newStatus}`);
 
-        const user = await findUser(data);
-        if (!user) break;
+        const upper = newStatus.toUpperCase();
 
-        if (INACTIVE_STATUSES.includes(newStatus.toUpperCase())) {
-          // User lost access — update status and kick
-          user.subscriptionStatus = 'expired' as const;
-          await user.save();
+        if (upper === 'ACTIVE') {
+          // First confirmation from Cashfree that auth succeeded — materialize the user.
+          const user = await findOrCreateUser(data, getPlanFromData(data));
+          if (!user) break;
 
-          await AuditLog.create({
-            userId: user._id, userEmail: user.email,
-            action: 'left_channel',
-            details: `Subscription status: ${newStatus}`,
-          });
-
-          await revokeDiscordAccess(user, `Subscription ${newStatus}`);
-
-        } else if (newStatus.toUpperCase() === 'ACTIVE') {
-          // Cashfree marks the subscription ACTIVE the moment auth succeeds —
-          // this happens DURING the trial period, before any real ₹4999 charge.
-          // So: only seed 'trial' if user is currently 'none'. Never promote
-          // an existing 'trial' user to 'active' here — that only happens when
-          // SUBSCRIPTION_PAYMENT_SUCCESS fires for the real recurring amount.
+          // Cashfree flips status to ACTIVE the moment auth succeeds, which happens
+          // DURING the trial window before any real ₹4999 charge. So only seed 'trial'
+          // if status is still 'none'; never promote an existing trial → active here
+          // (that flip only happens on SUBSCRIPTION_PAYMENT_SUCCESS for ₹4999+).
           if (user.subscriptionStatus === 'none') {
             user.subscriptionStatus = 'trial' as const;
             await user.save();
@@ -134,8 +175,24 @@ export async function POST(request: NextRequest) {
             action: 'subscribed',
             details: 'Subscription activated at Cashfree',
           });
-        } else if (newStatus.toUpperCase() === 'BANK_APPROVAL_PENDING') {
-          // Waiting for bank — just log
+        } else if (INACTIVE_STATUSES.includes(upper)) {
+          // Inactive events for an unknown sub mean the user never paid — ignore.
+          const user = await findUser(data);
+          if (!user) break;
+
+          user.subscriptionStatus = 'expired' as const;
+          await user.save();
+
+          await AuditLog.create({
+            userId: user._id, userEmail: user.email,
+            action: 'left_channel',
+            details: `Subscription status: ${newStatus}`,
+          });
+
+          await revokeDiscordAccess(user, `Subscription ${newStatus}`);
+        } else if (upper === 'BANK_APPROVAL_PENDING') {
+          const user = await findUser(data);
+          if (!user) break;
           await AuditLog.create({
             userId: user._id, userEmail: user.email,
             action: 'subscribed',
@@ -157,10 +214,14 @@ export async function POST(request: NextRequest) {
 
         console.log(`[Webhook] Auth status: ${authStatus}, Payment: ${paymentStatus}`);
 
-        const user = await findUser(data);
+        const success = authStatus.toUpperCase() === 'ACTIVE' || paymentStatus.toUpperCase() === 'SUCCESS';
+        // Only materialize the user on success — failed auths must not write to the DB.
+        const user = success
+          ? await findOrCreateUser(data, getPlanFromData(data))
+          : await findUser(data);
         if (!user) break;
 
-        if (authStatus.toUpperCase() === 'ACTIVE' || paymentStatus.toUpperCase() === 'SUCCESS') {
+        if (success) {
           // Save the authorization payment so it appears in Finance (₹1 for trial, full amount for returning users)
           const authAmount = Number(authDetails?.authorization_amount || (data.payment_amount as number)) || 1;
 
@@ -217,7 +278,8 @@ export async function POST(request: NextRequest) {
       //    Recurring payment charged successfully.
       // ═══════════════════════════════════════════════════
       case 'SUBSCRIPTION_PAYMENT_SUCCESS': {
-        const user = await findUser(data);
+        // Real recurring charge — materialize the user if we somehow missed the auth event.
+        const user = await findOrCreateUser(data, getPlanFromData(data));
         if (!user) break;
 
         const paymentAmount = Number(data.payment_amount) || 0;

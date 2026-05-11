@@ -6,17 +6,18 @@ import { Suspense, useEffect, useState } from 'react';
 function VerifyContent() {
   const searchParams = useSearchParams();
   const subId = searchParams.get('sub_id');
-  const userId = searchParams.get('user_id');
   const cfSubId = searchParams.get('subscription_id') || searchParams.get('subscriptionId');
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
   const [discordDone, setDiscordDone] = useState(false);
 
-  // Build Discord auth URL with userId and popup flag
-  const discordAuthUrl = (userId
-    ? `/api/auth/discord?user_id=${userId}&popup=1`
-    : '/api/auth/discord?popup=1');
+  // userId is resolved by polling /api/payment/status — the user record is created
+  // by the Cashfree webhook only after payment succeeds, so it may not exist for a
+  // few seconds after redirect.
+  const discordAuthUrl = resolvedUserId
+    ? `/api/auth/discord?user_id=${resolvedUserId}&popup=1`
+    : '/api/auth/discord?popup=1';
 
-  // Listen for success message from the popup
   useEffect(() => {
     function onMessage(e: MessageEvent) {
       if (e.data?.type === 'DISCORD_CONNECTED') {
@@ -37,18 +38,41 @@ function VerifyContent() {
 
   useEffect(() => {
     const effectiveSubId = subId || cfSubId;
-    if (effectiveSubId || userId) {
-      setStatus('success');
-    } else {
-      const allParams = searchParams.toString();
-      if (allParams) {
-        console.log('Payment verify params:', allParams);
-        setStatus('success');
-      } else {
-        setStatus('error');
-      }
+    if (!effectiveSubId) {
+      setStatus(searchParams.toString() ? 'success' : 'error');
+      return;
     }
-  }, [subId, userId, cfSubId, searchParams]);
+
+    // Poll the status endpoint until the webhook has materialized the user.
+    // Cap at ~90s — most webhooks land in 2-5s, but bank approvals can take longer.
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 45; // 45 × 2s = 90s
+
+    async function poll() {
+      while (!cancelled && attempts < maxAttempts) {
+        attempts++;
+        try {
+          const res = await fetch(`/api/payment/status?sub_id=${encodeURIComponent(effectiveSubId!)}`);
+          const data = await res.json();
+          if (data.ready && data.userId) {
+            if (!cancelled) {
+              setResolvedUserId(data.userId);
+              setStatus('success');
+            }
+            return;
+          }
+        } catch (e) {
+          console.error('Status poll failed:', e);
+        }
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+      if (!cancelled) setStatus('error');
+    }
+
+    poll();
+    return () => { cancelled = true; };
+  }, [subId, cfSubId, searchParams]);
 
   return (
     <div className="landing-section" style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: '100px' }}>
@@ -58,8 +82,10 @@ function VerifyContent() {
             <div style={{ margin: '0 auto 24px', width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(124,58,237,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div className="h-10 w-10 animate-spin rounded-full border-4" style={{ borderColor: 'var(--purple)', borderTopColor: 'transparent' }} />
             </div>
-            <h1 className="section-title">Verifying Payment...</h1>
-            <p className="section-body" style={{ margin: '0 auto' }}>Please wait while we confirm your subscription.</p>
+            <h1 className="section-title">Confirming Payment...</h1>
+            <p className="section-body" style={{ margin: '0 auto' }}>
+              We&apos;re waiting for your bank to confirm the authorization. This usually takes a few seconds — please don&apos;t close this page.
+            </p>
           </div>
         )}
 
