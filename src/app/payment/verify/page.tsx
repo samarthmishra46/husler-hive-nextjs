@@ -22,6 +22,8 @@ function VerifyContent() {
     function onMessage(e: MessageEvent) {
       if (e.data?.type === 'DISCORD_CONNECTED') {
         setDiscordDone(true);
+      } else if (e.data?.type === 'DISCORD_ERROR' && e.data?.status === 'already-linked') {
+        alert('This subscription is already linked to another Discord account. If this is wrong, contact support.');
       }
     }
     window.addEventListener('message', onMessage);
@@ -59,6 +61,9 @@ function VerifyContent() {
             if (!cancelled) {
               setResolvedUserId(data.userId);
               setStatus('success');
+              // If Discord is already linked (e.g. user refreshed this page after
+              // connecting), skip the Connect step entirely — one sub = one Discord.
+              if (data.discordConnected) setDiscordDone(true);
             }
             return;
           }

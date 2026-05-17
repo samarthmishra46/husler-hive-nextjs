@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
       ready,
       userId: String(user._id),
       subscriptionStatus: user.subscriptionStatus,
+      discordConnected: !!user.discordId,
     });
   } catch (error) {
     console.error('Payment status error:', error);

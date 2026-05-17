@@ -108,6 +108,20 @@ export async function GET(request: NextRequest) {
         user = await User.findById(stateUserId);
         if (user) {
           console.log(`Found user by state userId: ${user.email}`);
+
+          // One subscription = one Discord. If this user already linked a
+          // different Discord account, refuse to overwrite it — otherwise a
+          // refresh of /payment/verify would let anyone re-bind a new account
+          // to the same paying customer.
+          if (user.discordId && user.discordId !== discordUser.id) {
+            console.warn(
+              `Blocked Discord re-link attempt for ${user.email}: existing=${user.discordId}, incoming=${discordUser.id}`
+            );
+            const errorTarget = isPopup
+              ? `${base}/discord/done?discord=already-linked`
+              : `${base}/discord/connect?error=already_linked`;
+            return NextResponse.redirect(errorTarget);
+          }
         }
       } catch (err) {
         console.log('Could not find user by state userId:', err);

@@ -5,14 +5,16 @@ import { Suspense, useEffect } from 'react';
 
 function DoneContent() {
   const searchParams = useSearchParams();
-  const status = searchParams.get('discord'); // 'connected' | 'reconnected'
+  const status = searchParams.get('discord'); // 'connected' | 'reconnected' | 'already-linked'
+  const isError = status === 'already-linked';
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Notify the opener tab that Discord is connected, then close this tab
+    // Notify the opener tab — success or error — then close this tab.
     if (window.opener && !window.opener.closed) {
-      window.opener.postMessage({ type: 'DISCORD_CONNECTED', status }, window.opener.location.origin);
+      const type = isError ? 'DISCORD_ERROR' : 'DISCORD_CONNECTED';
+      window.opener.postMessage({ type, status }, window.opener.location.origin);
     }
 
     // Give the message a moment to arrive, then close
@@ -22,10 +24,10 @@ function DoneContent() {
       setTimeout(() => {
         window.location.href = '/dashboard?discord=' + (status || 'connected');
       }, 800);
-    }, 1200);
+    }, isError ? 2500 : 1200);
 
     return () => clearTimeout(timer);
-  }, [status]);
+  }, [status, isError]);
 
   return (
     <div style={{
@@ -46,10 +48,14 @@ function DoneContent() {
 
       <div>
         <h2 style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text)', margin: '0 0 6px' }}>
-          Discord {status === 'reconnected' ? 'Reconnected' : 'Connected'}!
+          {isError
+            ? 'Discord Already Linked'
+            : `Discord ${status === 'reconnected' ? 'Reconnected' : 'Connected'}!`}
         </h2>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>
-          You now have access to the private signals channel. This window will close automatically.
+          {isError
+            ? 'This subscription is already linked to another Discord account. Contact support if this is wrong.'
+            : 'You now have access to the private signals channel. This window will close automatically.'}
         </p>
       </div>
 
