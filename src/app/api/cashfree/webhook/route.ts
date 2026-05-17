@@ -5,6 +5,7 @@ import Payment from '@/models/Payment';
 import AuditLog from '@/models/AuditLog';
 import { verifyWebhookSignature } from '@/lib/cashfree';
 import { removeRoleFromUser } from '@/lib/discord';
+import { sendWelcomeEmailIfNeeded } from '@/lib/email';
 
 // ─── Helpers ────────────────────────────────────────────────
 
@@ -203,6 +204,8 @@ export async function POST(request: NextRequest) {
             action: 'subscribed',
             details: 'Subscription activated at Cashfree',
           });
+
+          await sendWelcomeEmailIfNeeded(user);
         } else if (INACTIVE_STATUSES.includes(upper)) {
           // Inactive events for an unknown sub mean the user never paid — ignore.
           const user = await findUser(data);
@@ -285,6 +288,8 @@ export async function POST(request: NextRequest) {
             action: 'subscribed',
             details: `Auth successful (${paymentStatus})`,
           });
+
+          await sendWelcomeEmailIfNeeded(user);
         } else if (authStatus.toUpperCase() === 'FAILED' || paymentStatus.toUpperCase() === 'FAILED') {
           // Reset so user can retry — clear the premature status set by subscribe route
           if (['none', 'trial'].includes(user.subscriptionStatus)) {

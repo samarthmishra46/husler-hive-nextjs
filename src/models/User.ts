@@ -11,6 +11,7 @@ export interface IUserDocument extends Document {
   plan?: 'monthly' | 'quarterly';
   trialUsed: boolean;
   channelAdded: boolean;
+  welcomeEmailSent: boolean;
   joinedAt?: Date;
   leftAt?: Date;
   createdAt: Date;
@@ -37,6 +38,7 @@ const UserSchema = new Schema<IUserDocument>(
     },
     trialUsed: { type: Boolean, default: false },
     channelAdded: { type: Boolean, default: false },
+    welcomeEmailSent: { type: Boolean, default: false },
     joinedAt: { type: Date, default: null },
     leftAt: { type: Date, default: null },
   },
