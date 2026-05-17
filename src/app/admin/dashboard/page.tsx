@@ -72,6 +72,7 @@ export default function AdminDashboardPage() {
   const [paymentPeriod, setPaymentPeriod] = useState('all');
   const [paymentType, setPaymentType] = useState('all');
   const [cleaningStale, setCleaningStale] = useState(false);
+  const [sendingDiscord, setSendingDiscord] = useState<string | null>(null);
 
   const handleKick = async (userId: string, email: string) => {
     if (!confirm(`Are you sure you want to kick ${email} from the Discord channel?`)) return;
@@ -117,6 +118,28 @@ export default function AdminDashboardPage() {
       setCleaningStale(false);
     }
   };
+
+  const handleSendDiscordLink = async (userId: string, email: string) => {
+  if (!confirm(`Send a fresh Discord invite link to ${email}?`)) return;
+  setSendingDiscord(userId);
+  try {
+    const res = await fetch('/api/admin/send-discord-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    });
+    if (res.ok) {
+      alert(`Discord link sent to ${email} successfully!`);
+    } else {
+      const data = await res.json();
+      alert(data.error || 'Failed to send Discord link');
+    }
+  } catch {
+    alert('Error sending Discord link');
+  } finally {
+    setSendingDiscord(null);
+  }
+};
 
   const fetchStats = useCallback(async () => {
     try {
@@ -337,8 +360,34 @@ export default function AdminDashboardPage() {
                     <option value="trial">Trial</option>
                     <option value="expired">Expired</option>
                     <option value="none">None</option>
-                  </select>
-                </div>
+                 </select>
+          <button
+            onClick={async () => {
+              const res = await fetch('/api/admin/export');
+              if (!res.ok) { alert('Export failed'); return; }
+              const blob = await res.blob();
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = 'hustlers-hive-users.xlsx';
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            style={{
+              padding: '10px 18px',
+              borderRadius: '10px',
+              border: '1px solid rgba(124,58,237,0.3)',
+              background: 'rgba(124,58,237,0.08)',
+              color: 'var(--purple)',
+              fontSize: '0.82rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            📥 Export to Excel
+          </button>
+        </div>
 
                 <div style={{ overflowX: 'auto', borderRadius: '14px', border: '1px solid var(--border)', background: 'var(--white)' }}>
                   <table style={{ width: '100%', fontSize: '0.82rem', borderCollapse: 'collapse' }}>
@@ -366,19 +415,24 @@ export default function AdminDashboardPage() {
                               : <span style={{ color: 'var(--text-light)' }}>—</span>}
                           </td>
                           <td style={{ ...td, fontSize: '0.75rem', color: 'var(--text-light)' }}>{formatDate(user.joinedAt)}</td>
-                          <td style={td}>
-                            {user.channelAdded && user.discordId ? (
-                              <button
-                                onClick={() => handleKick(user._id, user.email)}
-                                disabled={kickingUser === user._id}
-                                style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', color: '#dc2626', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', opacity: kickingUser === user._id ? 0.5 : 1 }}
-                              >
-                                {kickingUser === user._id ? 'Kicking...' : '🚫 Kick'}
-                              </button>
-                            ) : (
-                              <span style={{ color: 'var(--text-light)', fontSize: '0.75rem' }}>—</span>
-                            )}
-                          </td>
+                          <td style={{ ...td, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+  {user.channelAdded && user.discordId && (
+    <button
+      onClick={() => handleKick(user._id, user.email)}
+      disabled={kickingUser === user._id}
+      style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', color: '#dc2626', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', opacity: kickingUser === user._id ? 0.5 : 1 }}
+    >
+      {kickingUser === user._id ? 'Kicking...' : '🚫 Kick'}
+    </button>
+  )}
+  <button
+    onClick={() => handleSendDiscordLink(user._id, user.email)}
+    disabled={sendingDiscord === user._id}
+    style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid rgba(124,58,237,0.3)', background: 'rgba(124,58,237,0.08)', color: 'var(--purple)', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', opacity: sendingDiscord === user._id ? 0.5 : 1 }}
+  >
+    {sendingDiscord === user._id ? 'Sending...' : '📨 Send Discord Link'}
+  </button>
+</td>
                         </tr>
                       ))}
                       {users.length === 0 && (

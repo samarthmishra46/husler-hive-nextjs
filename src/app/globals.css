@@ -358,4 +358,174 @@ nav {
   .diff-grid { grid-template-columns: 1fr; }
 }
 
+/* ======================== */
+/* INFINITE PROOF CAROUSEL  */
+/* ======================== */
+#hh-proof-carousel-widget {
+  --hh-bg: #f3f1f8;
+  --hh-bg-soft: #ece8f6;
+  --hh-text: #1a1524;
+  --hh-muted: #625a74;
+  --hh-accent: #7447ff;
+  --hh-accent-deep: #4f2dc7;
+  --hh-border: rgba(74, 49, 128, 0.14);
+  --hh-border-strong: rgba(95, 63, 164, 0.24);
+  --hh-shadow: 0 24px 72px rgba(80, 48, 147, 0.12);
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  padding: 28px 0;
+  background:
+    radial-gradient(circle at top left, rgba(116, 71, 255, 0.08), transparent 28%),
+    radial-gradient(circle at 85% 20%, rgba(116, 71, 255, 0.12), transparent 30%),
+    linear-gradient(180deg, #f8f7fc 0%, #f1eef8 100%);
+}
+
+#hh-proof-carousel-widget *,
+#hh-proof-carousel-widget *::before,
+#hh-proof-carousel-widget *::after {
+  box-sizing: border-box;
+}
+
+#hh-proof-carousel-widget .hh-proof-carousel__backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, rgba(116, 71, 255, 0.10), transparent 34%),
+    radial-gradient(circle at 80% 12%, rgba(116, 71, 255, 0.12), transparent 22%);
+  opacity: 0.95;
+}
+
+#hh-proof-carousel-widget .hh-proof-carousel__inner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 18px;
+}
+
+#hh-proof-carousel-widget .hh-proof-carousel__row {
+  position: relative;
+}
+
+#hh-proof-carousel-widget .hh-proof-carousel__viewport {
+  overflow: hidden;
+  width: 100%;
+  padding: 8px 0;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    rgba(0, 0, 0, 1) 7%,
+    rgba(0, 0, 0, 1) 93%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    rgba(0, 0, 0, 1) 7%,
+    rgba(0, 0, 0, 1) 93%,
+    transparent 100%
+  );
+}
+
+#hh-proof-carousel-widget .hh-proof-carousel__track {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 18px;
+  width: max-content !important;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+#hh-proof-carousel-widget .hh-proof-card {
+  position: relative;
+  flex: 0 0 auto !important;
+  width: clamp(182px, 18vw, 244px) !important;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid var(--hh-border-strong);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(244, 240, 251, 0.94));
+  box-shadow: var(--hh-shadow);
+  transition:
+    transform 280ms ease,
+    box-shadow 280ms ease,
+    border-color 280ms ease;
+}
+
+#hh-proof-carousel-widget .hh-proof-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(116, 71, 255, 0.28), rgba(255, 255, 255, 0.18));
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+#hh-proof-carousel-widget .hh-proof-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(116, 71, 255, 0.3);
+  box-shadow: 0 28px 72px rgba(80, 48, 147, 0.18);
+}
+
+#hh-proof-carousel-widget .hh-proof-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #17141f;
+}
+
+@media (max-width: 991px) {
+  #hh-proof-carousel-widget {
+    padding: 22px 0;
+  }
+  #hh-proof-carousel-widget .hh-proof-carousel__inner {
+    gap: 14px;
+  }
+  #hh-proof-carousel-widget .hh-proof-carousel__track {
+    gap: 14px;
+  }
+  #hh-proof-carousel-widget .hh-proof-card {
+    width: clamp(160px, 34vw, 204px);
+    border-radius: 20px;
+  }
+}
+
+@media (max-width: 767px) {
+  #hh-proof-carousel-widget {
+    padding: 18px 0;
+  }
+  #hh-proof-carousel-widget .hh-proof-carousel__viewport {
+    padding: 6px 0;
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      rgba(0, 0, 0, 1) 4%,
+      rgba(0, 0, 0, 1) 96%,
+      transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      rgba(0, 0, 0, 1) 4%,
+      rgba(0, 0, 0, 1) 96%,
+      transparent 100%
+    );
+  }
+  #hh-proof-carousel-widget .hh-proof-carousel__track {
+    gap: 12px;
+  }
+  #hh-proof-carousel-widget .hh-proof-card {
+    width: clamp(144px, 46vw, 184px);
+    border-radius: 18px;
+  }
+}
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import SubscribeForm from '@/components/SubscribeForm';
+import InfiniteCarousel from '@/components/InfiniteCarousel';
 
 export type PlanType = 'monthly' | 'quarterly';
 
@@ -10,7 +11,7 @@ export default function Home() {
   const [showForm, setShowForm] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PlanType>('monthly');
   const [videoSlide, setVideoSlide] = useState(0);
-  const [imgSlide, setImgSlide] = useState(0);
+
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
 const certificates = [
@@ -72,22 +73,7 @@ const certificates = [
     });
   }, [videoSlide, fundedVideos.length]);
 
-  const goToImg = useCallback((dir: number) => {
-    setImgSlide((prev) => {
-      const next = prev + dir;
-      if (next < 0) return certificates.length - 1;
-      if (next >= certificates.length) return 0;
-      return next;
-    });
-  }, [certificates.length]);
 
-  // Auto-scroll images
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setImgSlide((prev) => (prev + 1) % certificates.length);
-    }, 3500);
-    return () => clearInterval(timer);
-  }, [certificates.length]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -397,7 +383,7 @@ const certificates = [
 
       <div className="divider"></div>
 
-      {/* CERTIFICATES & PHOTOS */}
+      {/* CERTIFICATES & PHOTOS — Infinite Carousel */}
       <section id="certificates" className="landing-section">
         <div className="reveal" style={{ textAlign: 'center', marginBottom: '36px' }}>
           <p className="section-eyebrow">The Proof</p>
@@ -408,34 +394,8 @@ const certificates = [
             Scroll through our members achieving their funded goals.
           </p>
         </div>
-        <div className="img-carousel reveal">
-          <button className="video-nav" onClick={() => goToImg(-1)} aria-label="Previous image">
-            ‹
-          </button>
-          <div className="img-carousel-frame">
-            {certificates.map((cert, i) => (
-              <div
-                key={i}
-                className={`img-slide ${i === imgSlide ? 'active' : ''}`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={cert.src} alt={cert.alt} className="img-player" />
-              </div>
-            ))}
-          </div>
-          <button className="video-nav" onClick={() => goToImg(1)} aria-label="Next image">
-            ›
-          </button>
-        </div>
-        <div className="video-dots reveal" style={{ marginTop: '20px' }}>
-          {certificates.map((_, i) => (
-            <button
-              key={i}
-              className={`video-dot ${i === imgSlide ? 'active' : ''}`}
-              onClick={() => setImgSlide(i)}
-              aria-label={`Go to image ${i + 1}`}
-            />
-          ))}
+        <div className="reveal">
+          <InfiniteCarousel images={certificates} />
         </div>
       </section>
 
