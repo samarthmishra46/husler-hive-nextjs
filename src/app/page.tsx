@@ -15,34 +15,26 @@ export default function Home() {
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
 const certificates = [
-  {
-    src: 'https://res.cloudinary.com/dqyizevct/image/upload/v1774345347/WhatsApp_Image_2026-03-23_at_1.18.39_PM_1_hddtkz.jpg',
-    alt: 'Funded certificate display 1',
-  },
-  {
-    src: 'https://res.cloudinary.com/dqyizevct/image/upload/v1774345349/WhatsApp_Image_2026-03-23_at_1.18.38_PM_1_ogxyjw.jpg',
-    alt: 'Funded certificate display 2',
-  },
-  {
-    src: 'https://res.cloudinary.com/dqyizevct/image/upload/v1774345349/WhatsApp_Image_2026-03-23_at_1.18.37_PM_drboiv.jpg',
-    alt: 'Funded certificate display 3',
-  },
-  {
-    src: 'https://res.cloudinary.com/dqyizevct/image/upload/v1774345347/WhatsApp_Image_2026-03-23_at_1.18.39_PM_2_bn9qwy.jpg',
-    alt: 'Funded certificate display 4',
-  },
-  {
-    src: 'https://res.cloudinary.com/dqyizevct/image/upload/v1774345347/WhatsApp_Image_2026-03-23_at_1.18.38_PM_w3lghp.jpg',
-    alt: 'Funded certificate display 5',
-  },
-  {
-    src: 'https://res.cloudinary.com/dqyizevct/image/upload/v1774345347/WhatsApp_Image_2026-03-23_at_1.18.40_PM_xdrnyk.jpg',
-    alt: 'Funded certificate display 6',
-  },
-  {
-    src: 'https://res.cloudinary.com/dqyizevct/image/upload/v1774345347/WhatsApp_Image_2026-03-23_at_1.18.39_PM_pyofbe.jpg',
-    alt: 'Funded certificate display 7',
-  },
+  { src: '/proof/IMG_8235.PNG', alt: 'Trading proof 1' },
+  { src: '/proof/IMG_8236.PNG', alt: 'Trading proof 2' },
+  { src: '/proof/IMG_8237.PNG', alt: 'Trading proof 3' },
+  { src: '/proof/IMG_8238.PNG', alt: 'Trading proof 4' },
+  { src: '/proof/IMG_8239.PNG', alt: 'Trading proof 5' },
+  { src: '/proof/IMG_8240.PNG', alt: 'Trading proof 6' },
+  { src: '/proof/IMG_8241.PNG', alt: 'Trading proof 7' },
+  { src: '/proof/IMG_8242.PNG', alt: 'Trading proof 8' },
+  { src: '/proof/IMG_8243.PNG', alt: 'Trading proof 9' },
+  { src: '/proof/IMG_8244.PNG', alt: 'Trading proof 10' },
+  { src: '/proof/IMG_8245.PNG', alt: 'Trading proof 11' },
+  { src: '/proof/IMG_8247.PNG', alt: 'Trading proof 12' },
+  { src: '/proof/IMG_8248.PNG', alt: 'Trading proof 13' },
+  { src: '/proof/IMG_8249.PNG', alt: 'Trading proof 14' },
+  { src: '/proof/IMG_8250.PNG', alt: 'Trading proof 15' },
+  { src: '/proof/IMG_8251.PNG', alt: 'Trading proof 16' },
+  { src: '/proof/IMG_8252.PNG', alt: 'Trading proof 17' },
+  { src: '/proof/IMG_8253.PNG', alt: 'Trading proof 18' },
+  { src: '/proof/IMG_8254.PNG', alt: 'Trading proof 19' },
+  { src: '/proof/IMG_8255.PNG', alt: 'Trading proof 20' },
 ];
 
   const fundedVideos = [
