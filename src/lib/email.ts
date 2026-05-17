@@ -17,8 +17,14 @@ const PLAN_LABELS = {
  * events don't re-email.
  */
 export async function sendWelcomeEmailIfNeeded(user: IUserDocument): Promise<void> {
-  if (user.welcomeEmailSent) return;
-  if (!user.cashfreeSubscriptionId) return;
+  if (user.welcomeEmailSent) {
+    console.log(`[email] skip welcome (already sent) → ${user.email} sub=${user.cashfreeSubscriptionId}`);
+    return;
+  }
+  if (!user.cashfreeSubscriptionId) {
+    console.log(`[email] skip welcome (no subscription id) → ${user.email}`);
+    return;
+  }
   if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL) {
     console.warn('[email] Resend env vars missing — skipping welcome email');
     return;
@@ -83,8 +89,10 @@ export async function sendWelcomeEmailIfNeeded(user: IUserDocument): Promise<voi
     </div>
   `;
 
+  console.log(`[email] sending welcome → ${user.email} sub=${user.cashfreeSubscriptionId} plan=${user.plan || 'monthly'} status=${user.subscriptionStatus}`);
+
   try {
-    const { error } = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL,
       to: user.email,
       subject: trial
@@ -94,13 +102,14 @@ export async function sendWelcomeEmailIfNeeded(user: IUserDocument): Promise<voi
     });
 
     if (error) {
-      console.error('[email] Resend error:', error);
+      console.error(`[email] Resend rejected send → ${user.email}:`, error);
       return; // don't set the flag — let a later webhook retry
     }
 
     user.welcomeEmailSent = true;
     await user.save();
+    console.log(`[email] welcome sent ✓ to=${user.email} sub=${user.cashfreeSubscriptionId} resend_id=${data?.id}`);
   } catch (err) {
-    console.error('[email] Send threw:', err);
+    console.error(`[email] send threw for ${user.email}:`, err);
   }
 }
