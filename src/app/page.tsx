@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import SubscribeForm from '@/components/SubscribeForm';
+import InfiniteCarousel from '@/components/InfiniteCarousel';
 
 export type PlanType = 'monthly' | 'quarterly';
 
@@ -10,38 +11,30 @@ export default function Home() {
   const [showForm, setShowForm] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PlanType>('monthly');
   const [videoSlide, setVideoSlide] = useState(0);
-  const [imgSlide, setImgSlide] = useState(0);
+
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
 const certificates = [
-  {
-    src: 'https://res.cloudinary.com/dqyizevct/image/upload/v1774345347/WhatsApp_Image_2026-03-23_at_1.18.39_PM_1_hddtkz.jpg',
-    alt: 'Funded certificate display 1',
-  },
-  {
-    src: 'https://res.cloudinary.com/dqyizevct/image/upload/v1774345349/WhatsApp_Image_2026-03-23_at_1.18.38_PM_1_ogxyjw.jpg',
-    alt: 'Funded certificate display 2',
-  },
-  {
-    src: 'https://res.cloudinary.com/dqyizevct/image/upload/v1774345349/WhatsApp_Image_2026-03-23_at_1.18.37_PM_drboiv.jpg',
-    alt: 'Funded certificate display 3',
-  },
-  {
-    src: 'https://res.cloudinary.com/dqyizevct/image/upload/v1774345347/WhatsApp_Image_2026-03-23_at_1.18.39_PM_2_bn9qwy.jpg',
-    alt: 'Funded certificate display 4',
-  },
-  {
-    src: 'https://res.cloudinary.com/dqyizevct/image/upload/v1774345347/WhatsApp_Image_2026-03-23_at_1.18.38_PM_w3lghp.jpg',
-    alt: 'Funded certificate display 5',
-  },
-  {
-    src: 'https://res.cloudinary.com/dqyizevct/image/upload/v1774345347/WhatsApp_Image_2026-03-23_at_1.18.40_PM_xdrnyk.jpg',
-    alt: 'Funded certificate display 6',
-  },
-  {
-    src: 'https://res.cloudinary.com/dqyizevct/image/upload/v1774345347/WhatsApp_Image_2026-03-23_at_1.18.39_PM_pyofbe.jpg',
-    alt: 'Funded certificate display 7',
-  },
+  { src: '/proof/IMG_8235.PNG', alt: 'Trading proof 1' },
+  { src: '/proof/IMG_8236.PNG', alt: 'Trading proof 2' },
+  { src: '/proof/IMG_8237.PNG', alt: 'Trading proof 3' },
+  { src: '/proof/IMG_8238.PNG', alt: 'Trading proof 4' },
+  { src: '/proof/IMG_8239.PNG', alt: 'Trading proof 5' },
+  { src: '/proof/IMG_8240.PNG', alt: 'Trading proof 6' },
+  { src: '/proof/IMG_8241.PNG', alt: 'Trading proof 7' },
+  { src: '/proof/IMG_8242.PNG', alt: 'Trading proof 8' },
+  { src: '/proof/IMG_8243.PNG', alt: 'Trading proof 9' },
+  { src: '/proof/IMG_8244.PNG', alt: 'Trading proof 10' },
+  { src: '/proof/IMG_8245.PNG', alt: 'Trading proof 11' },
+  { src: '/proof/IMG_8247.PNG', alt: 'Trading proof 12' },
+  { src: '/proof/IMG_8248.PNG', alt: 'Trading proof 13' },
+  { src: '/proof/IMG_8249.PNG', alt: 'Trading proof 14' },
+  { src: '/proof/IMG_8250.PNG', alt: 'Trading proof 15' },
+  { src: '/proof/IMG_8251.PNG', alt: 'Trading proof 16' },
+  { src: '/proof/IMG_8252.PNG', alt: 'Trading proof 17' },
+  { src: '/proof/IMG_8253.PNG', alt: 'Trading proof 18' },
+  { src: '/proof/IMG_8254.PNG', alt: 'Trading proof 19' },
+  { src: '/proof/IMG_8255.PNG', alt: 'Trading proof 20' },
 ];
 
   const fundedVideos = [
@@ -72,22 +65,7 @@ const certificates = [
     });
   }, [videoSlide, fundedVideos.length]);
 
-  const goToImg = useCallback((dir: number) => {
-    setImgSlide((prev) => {
-      const next = prev + dir;
-      if (next < 0) return certificates.length - 1;
-      if (next >= certificates.length) return 0;
-      return next;
-    });
-  }, [certificates.length]);
 
-  // Auto-scroll images
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setImgSlide((prev) => (prev + 1) % certificates.length);
-    }, 3500);
-    return () => clearInterval(timer);
-  }, [certificates.length]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -397,7 +375,7 @@ const certificates = [
 
       <div className="divider"></div>
 
-      {/* CERTIFICATES & PHOTOS */}
+      {/* CERTIFICATES & PHOTOS — Infinite Carousel */}
       <section id="certificates" className="landing-section">
         <div className="reveal" style={{ textAlign: 'center', marginBottom: '36px' }}>
           <p className="section-eyebrow">The Proof</p>
@@ -408,34 +386,8 @@ const certificates = [
             Scroll through our members achieving their funded goals.
           </p>
         </div>
-        <div className="img-carousel reveal">
-          <button className="video-nav" onClick={() => goToImg(-1)} aria-label="Previous image">
-            ‹
-          </button>
-          <div className="img-carousel-frame">
-            {certificates.map((cert, i) => (
-              <div
-                key={i}
-                className={`img-slide ${i === imgSlide ? 'active' : ''}`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={cert.src} alt={cert.alt} className="img-player" />
-              </div>
-            ))}
-          </div>
-          <button className="video-nav" onClick={() => goToImg(1)} aria-label="Next image">
-            ›
-          </button>
-        </div>
-        <div className="video-dots reveal" style={{ marginTop: '20px' }}>
-          {certificates.map((_, i) => (
-            <button
-              key={i}
-              className={`video-dot ${i === imgSlide ? 'active' : ''}`}
-              onClick={() => setImgSlide(i)}
-              aria-label={`Go to image ${i + 1}`}
-            />
-          ))}
+        <div className="reveal">
+          <InfiniteCarousel images={certificates} />
         </div>
       </section>
 
