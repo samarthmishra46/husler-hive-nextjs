@@ -74,9 +74,7 @@ function ConnectContent() {
               <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>
                 You now have access to the private signals channel.
               </p>
-              <a href="/dashboard" style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '8px', borderRadius: '10px', background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)', padding: '10px 20px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--purple)', textDecoration: 'none' }}>
-                Go to Dashboard →
-              </a>
+             
             </div>
           ) : (
             <>
