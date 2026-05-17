@@ -46,6 +46,7 @@ const UserSchema = new Schema<IUserDocument>(
 UserSchema.index({ email: 1 }, { unique: true });
 UserSchema.index({ mobile: 1 });
 UserSchema.index({ discordId: 1 });
+UserSchema.index({ cashfreeSubscriptionId: 1 });
 
 const User: Model<IUserDocument> =
   mongoose.models.User || mongoose.model<IUserDocument>('User', UserSchema);

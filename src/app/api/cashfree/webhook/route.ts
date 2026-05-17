@@ -44,11 +44,30 @@ async function findOrCreateUser(data: Record<string, unknown>, plan: 'monthly' |
   let user = await User.findOne({ cashfreeSubscriptionId: subscriptionId });
   if (user) return user;
 
+  // Cashfree returns customer info at data.customer_details (top-level), matching
+  // the shape we sent in the subscribe request. Some events also include a copy
+  // under subscription_details — check both so we degrade gracefully if the API
+  // shape shifts.
   const subDetails = (data.subscription_details || {}) as Record<string, unknown>;
-  const email = String(subDetails.customer_email || '').toLowerCase().trim();
-  const phone = String(subDetails.customer_phone || '').trim();
+  const customerDetails = (data.customer_details ||
+    subDetails.customer_details ||
+    {}) as Record<string, unknown>;
+
+  const email = String(
+    customerDetails.customer_email ||
+    subDetails.customer_email ||
+    ''
+  ).toLowerCase().trim();
+  const phone = String(
+    customerDetails.customer_phone ||
+    subDetails.customer_phone ||
+    ''
+  ).trim();
+
   if (!email) {
-    console.error('[Webhook] findOrCreateUser: no customer_email in subscription_details');
+    console.error(
+      `[Webhook] findOrCreateUser: no customer_email for sub=${subscriptionId}. data keys: ${Object.keys(data).join(',')}`
+    );
     return null;
   }
 
@@ -74,10 +93,19 @@ async function findOrCreateUser(data: Record<string, unknown>, plan: 'monthly' |
   });
 }
 
-/** Derive plan from Cashfree's recurring/max amount in subscription_details. */
+/** Derive plan from Cashfree's recurring/max amount. Checked across plan_details
+ *  (top-level, matches the shape we sent) and subscription_details as a fallback. */
 function getPlanFromData(data: Record<string, unknown>): 'monthly' | 'quarterly' {
+  const planDetails = (data.plan_details || {}) as Record<string, unknown>;
   const subDetails = (data.subscription_details || {}) as Record<string, unknown>;
-  const amount = Number(subDetails.plan_recurring_amount || subDetails.plan_max_amount || 0);
+  const amount = Number(
+    planDetails.plan_recurring_amount ||
+    planDetails.plan_max_amount ||
+    planDetails.plan_amount ||
+    subDetails.plan_recurring_amount ||
+    subDetails.plan_max_amount ||
+    0
+  );
   return amount >= 12997 ? 'quarterly' : 'monthly';
 }
 
