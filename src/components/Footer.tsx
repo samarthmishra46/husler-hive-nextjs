@@ -29,7 +29,7 @@ export default function Footer() {
           <h5>Contact</h5>
           <ul>
             <li><a href="mailto:hustlershive@protonmail.com">hustlershive@protonmail.com</a></li>
-            <li><a href="tel:+916380306821">+91 6380306821</a></li>
+            <li><a href="tel:+918807754706">+91 8807754706</a></li>
           </ul>
         </div>
       </div>

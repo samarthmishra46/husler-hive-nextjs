@@ -14,6 +14,23 @@ export default function Home() {
 
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
+  // Open the signup modal when the navbar dispatches `open-subscribe`, or when
+  // we land here with ?signup=1 (set by the navbar button from other routes).
+  useEffect(() => {
+    function onOpen() { setShowForm(true); }
+    window.addEventListener('open-subscribe', onOpen);
+
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('signup') === '1') {
+      setShowForm(true);
+      // Strip the param so a refresh doesn't keep re-opening it.
+      const url = new URL(window.location.href);
+      url.searchParams.delete('signup');
+      window.history.replaceState({}, '', url.toString());
+    }
+
+    return () => window.removeEventListener('open-subscribe', onOpen);
+  }, []);
+
 const certificates = [
   { src: '/proof/IMG_8235.PNG', alt: 'Trading proof 1' },
   { src: '/proof/IMG_8236.PNG', alt: 'Trading proof 2' },
