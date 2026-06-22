@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { PLAN_LIST } from '@/lib/plans';
 
 const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID!;
 const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY!;
@@ -42,24 +43,23 @@ function getFirstChargeTime(days: number, planIntervals: number = 1): string {
   return `${year}-${month}-${day}T10:00:00+05:30`;
 }
 
-// Plan configurations
-const PLAN_CONFIGS: Record<string, { name: string; amount: number; intervalType: string; intervals: number }> = {
-  monthly: {
-    name: 'Monthly Membership',
-    amount: 4999,
-    intervalType: 'MONTH',
-    intervals: 1,
-  },
-  quarterly: {
-    name: '3-Month Bundle',
-    amount: 12997,
-    intervalType: 'MONTH',
-    intervals: 3,
-  },
-};
+// Recurring plan configurations, derived from the shared plan catalog so prices
+// live in exactly one place (src/lib/plans.ts).
+const PLAN_CONFIGS: Record<string, { name: string; amount: number; intervalType: string; intervals: number }> =
+  Object.fromEntries(
+    PLAN_LIST.filter((p) => p.billing === 'recurring').map((p) => [
+      p.key,
+      {
+        name: p.name,
+        amount: p.amount,
+        intervalType: p.intervalType ?? 'MONTH',
+        intervals: p.intervals ?? 1,
+      },
+    ])
+  );
 
 export async function createSubscription(params: {
-  planId: string; // 'monthly' or 'quarterly'
+  planId: string; // a recurring PlanKey, e.g. 'foundation-1m'
   subscriptionId: string;
   customerEmail: string;
   customerPhone: string;
@@ -67,7 +67,7 @@ export async function createSubscription(params: {
   trialDays: number;
   returnUrl: string;
 }) {
-  const planConfig = PLAN_CONFIGS[params.planId] || PLAN_CONFIGS.monthly;
+  const planConfig = PLAN_CONFIGS[params.planId] || PLAN_CONFIGS['foundation-1m'];
   
   const body: Record<string, unknown> = {
     subscription_id: params.subscriptionId,
@@ -129,6 +129,59 @@ export async function getSubscriptionStatus(subscriptionId: string) {
   return data;
 }
 
+// ─── One-time Orders (Cashfree PG) ──────────────────────────
+// Used for the "One time" products (Elite Mentorship, Link 1/2/3). Unlike
+// subscriptions, these are a single full charge with no mandate/trial.
+
+export async function createOrder(params: {
+  orderId: string;
+  amount: number;
+  customerEmail: string;
+  customerPhone: string;
+  planKey: string;
+  returnUrl: string;
+}) {
+  const body = {
+    order_id: params.orderId,
+    order_amount: params.amount,
+    order_currency: 'INR',
+    customer_details: {
+      // customer_id is required by Cashfree — derive a stable id from email.
+      customer_id: crypto.createHash('md5').update(params.customerEmail.toLowerCase()).digest('hex'),
+      customer_email: params.customerEmail,
+      customer_phone: params.customerPhone, // 10 digits, no +91
+    },
+    order_meta: {
+      return_url: params.returnUrl,
+    },
+    order_tags: {
+      plan: params.planKey,
+    },
+  };
+
+  console.log('[Cashfree] Creating order with body:', JSON.stringify(body, null, 2));
+
+  const response = await fetch(`${BASE_URL}/orders`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(body),
+  });
+
+  const data = await response.json();
+  console.log('[Cashfree] Order response:', JSON.stringify(data, null, 2));
+  return data;
+}
+
+export async function getOrderStatus(orderId: string) {
+  const response = await fetch(`${BASE_URL}/orders/${orderId}`, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+
+  const data = await response.json();
+  return data;
+}
+
 export async function verifyPayment(orderId: string) {
   const response = await fetch(`${BASE_URL}/orders/${orderId}`, {
     method: 'GET',
@@ -151,6 +204,26 @@ export function verifyWebhookSignature(
   return signature === expectedSignature;
 }
 
+// PG order webhooks sign `timestamp + rawBody` (not just the body) and send it
+// in the `x-webhook-signature` header alongside `x-webhook-timestamp`. This is a
+// different scheme than the subscription webhook's `x-cashfree-signature`.
+export function verifyOrderWebhookSignature(
+  timestamp: string,
+  rawBody: string,
+  signature: string
+): boolean {
+  const expectedSignature = crypto
+    .createHmac('sha256', CASHFREE_SECRET_KEY)
+    .update(timestamp + rawBody)
+    .digest('base64');
+
+  return signature === expectedSignature;
+}
+
 export function generateSubscriptionId(): string {
   return `sub_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+}
+
+export function generateOrderId(): string {
+  return `ord_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 }

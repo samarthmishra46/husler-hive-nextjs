@@ -15,10 +15,12 @@ export async function GET(request: NextRequest) {
 
     await dbConnect();
 
-    // Find all users with active channel access
+    // Find all users with active channel access.
+    // `lifetime` buyers are paid-in-advance (one-time products) — never kick them.
     const users = await User.find({
       channelAdded: true,
       cashfreeSubscriptionId: { $ne: null },
+      lifetime: { $ne: true },
     });
 
     let kicked = 0;
@@ -79,6 +81,7 @@ export async function GET(request: NextRequest) {
     const overdueTrialUsers = await User.find({
       subscriptionStatus: 'trial',
       channelAdded: true,
+      lifetime: { $ne: true },
       createdAt: { $lte: trialCutoff },
     });
 

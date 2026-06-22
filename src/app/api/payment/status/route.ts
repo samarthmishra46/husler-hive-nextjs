@@ -7,14 +7,19 @@ import User from '@/models/User';
 // active/trial subscription, along with the user_id needed for Discord OAuth.
 export async function GET(request: NextRequest) {
   try {
-    const subId = new URL(request.url).searchParams.get('sub_id');
-    if (!subId) {
-      return NextResponse.json({ error: 'sub_id is required' }, { status: 400 });
+    const params = new URL(request.url).searchParams;
+    const subId = params.get('sub_id');
+    const orderId = params.get('order_id');
+    if (!subId && !orderId) {
+      return NextResponse.json({ error: 'sub_id or order_id is required' }, { status: 400 });
     }
 
     await dbConnect();
 
-    const user = await User.findOne({ cashfreeSubscriptionId: subId });
+    // One-time orders are matched by cashfreeOrderId; subscriptions by cashfreeSubscriptionId.
+    const user = orderId
+      ? await User.findOne({ cashfreeOrderId: orderId })
+      : await User.findOne({ cashfreeSubscriptionId: subId });
     if (!user) {
       return NextResponse.json({ ready: false });
     }

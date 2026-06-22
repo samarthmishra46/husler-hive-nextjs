@@ -7,6 +7,7 @@ function VerifyContent() {
   const searchParams = useSearchParams();
   const subId = searchParams.get('sub_id');
   const cfSubId = searchParams.get('subscription_id') || searchParams.get('subscriptionId');
+  const orderId = searchParams.get('order_id');
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
   const [discordDone, setDiscordDone] = useState(false);
@@ -40,7 +41,14 @@ function VerifyContent() {
 
   useEffect(() => {
     const effectiveSubId = subId || cfSubId;
-    if (!effectiveSubId) {
+    // One-time orders verify by order_id; subscriptions by sub_id.
+    const statusQuery = orderId
+      ? `order_id=${encodeURIComponent(orderId)}`
+      : effectiveSubId
+        ? `sub_id=${encodeURIComponent(effectiveSubId)}`
+        : '';
+
+    if (!statusQuery) {
       setStatus(searchParams.toString() ? 'success' : 'error');
       return;
     }
@@ -55,7 +63,7 @@ function VerifyContent() {
       while (!cancelled && attempts < maxAttempts) {
         attempts++;
         try {
-          const res = await fetch(`/api/payment/status?sub_id=${encodeURIComponent(effectiveSubId!)}`);
+          const res = await fetch(`/api/payment/status?${statusQuery}`);
           const data = await res.json();
           if (data.ready && data.userId) {
             if (!cancelled) {
@@ -77,7 +85,7 @@ function VerifyContent() {
 
     poll();
     return () => { cancelled = true; };
-  }, [subId, cfSubId, searchParams]);
+  }, [subId, cfSubId, orderId, searchParams]);
 
   return (
     <div className="landing-section" style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: '100px' }}>

@@ -6,6 +6,8 @@ import AuditLog from '@/models/AuditLog';
 import { verifyWebhookSignature } from '@/lib/cashfree';
 import { removeRoleFromUser } from '@/lib/discord';
 import { sendWelcomeEmailIfNeeded } from '@/lib/email';
+import { recurringPlanKeyByAmount } from '@/lib/plans';
+import type { PlanKey } from '@/lib/plans';
 
 // ─── Helpers ────────────────────────────────────────────────
 
@@ -37,7 +39,7 @@ async function findUser(data: Record<string, unknown>) {
  * here, only when Cashfree confirms an authorization or charge succeeded. We pull
  * email/phone/plan from the webhook's subscription_details payload.
  */
-async function findOrCreateUser(data: Record<string, unknown>, plan: 'monthly' | 'quarterly') {
+async function findOrCreateUser(data: Record<string, unknown>, plan: PlanKey) {
   const subscriptionId = getSubscriptionId(data);
   if (!subscriptionId) return null;
 
@@ -95,8 +97,9 @@ async function findOrCreateUser(data: Record<string, unknown>, plan: 'monthly' |
 }
 
 /** Derive plan from Cashfree's recurring/max amount. Checked across plan_details
- *  (top-level, matches the shape we sent) and subscription_details as a fallback. */
-function getPlanFromData(data: Record<string, unknown>): 'monthly' | 'quarterly' {
+ *  (top-level, matches the shape we sent) and subscription_details as a fallback.
+ *  Recurring plan amounts are unique, so we map amount → PlanKey directly. */
+function getPlanFromData(data: Record<string, unknown>): PlanKey {
   const planDetails = (data.plan_details || {}) as Record<string, unknown>;
   const subDetails = (data.subscription_details || {}) as Record<string, unknown>;
   const amount = Number(
@@ -107,7 +110,7 @@ function getPlanFromData(data: Record<string, unknown>): 'monthly' | 'quarterly'
     subDetails.plan_max_amount ||
     0
   );
-  return amount >= 12997 ? 'quarterly' : 'monthly';
+  return recurringPlanKeyByAmount(amount);
 }
 
 /** Remove paid role from user in Discord */

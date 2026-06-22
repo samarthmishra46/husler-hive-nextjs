@@ -1,19 +1,26 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #f4f3f8;
-  --white: #ffffff;
-  --purple: #7c3aed;
-  --purple-light: #a78bfa;
-  --purple-dark: #5b21b6;
-  --text: #1a1a2e;
-  --text-muted: #6b6b8a;
-  --text-light: #9999b8;
-  --border: #e2e0ef;
-  --gradient-hero: linear-gradient(140deg, #ede9fe 0%, #f5f0ff 25%, #fdf4ff 50%, #ede9fe 75%, #dbeafe 100%);
-  
+  --bg: #090909;
+  /* --white is repurposed as the card / elevated surface colour so existing
+     `var(--white)` usages become dark panels instead of white. */
+  --white: #141416;
+  --surface: #141416;
+  --surface-2: #1c1c20;
+  --purple: #6C1EE3;
+  --purple-light: #a072f3;
+  --purple-dark: #4f14ab;
+  --text: #f3f3f5;
+  --text-muted: #9b9ba5;
+  --text-light: #6c6c78;
+  --border: rgba(255,255,255,0.09);
+  --gradient-hero: radial-gradient(circle at 50% -10%, rgba(108,30,227,0.22) 0%, transparent 55%), #090909;
+
   --background: var(--bg);
   --foreground: var(--text);
+
+  --font-display: 'Clash Display', 'Inter', sans-serif;
+  --font-body: 'Clash Grotesk', 'Inter', sans-serif;
 }
 
 @theme inline {
@@ -23,13 +30,14 @@
 
 html { scroll-behavior: smooth; }
 
-body { 
-  background: var(--bg); 
-  color: var(--text); 
-  font-family: 'Inter', sans-serif; 
-  font-size: 14px; 
-  line-height: 1.6; 
-  overflow-x: hidden; 
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-weight: 500; /* Clash Grotesk Medium */
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-x: hidden;
 }
 
 /* Base resets handled by Tailwind, but applying user specifics */
@@ -43,11 +51,11 @@ body {
   background: var(--bg);
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #2a2a30;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #3a3a44;
 }
 
 /* NAV */
@@ -528,4 +536,112 @@ nav {
     border-radius: 18px;
   }
 }
+
+/* ============================================================ */
+/* DARK THEME (Hustler's Hive brand) — overrides + brand fonts  */
+/* bg #090909 · primary #6C1EE3 · Clash Display + Clash Grotesk */
+/* ============================================================ */
+
+/* Headings use Clash Display (light). Body stays Clash Grotesk (medium). */
+.hero-title,
+.section-title,
+.subscribe-heading,
+.pricing-amount,
+.price-card-amount,
+.timeline-cta h3,
+.real-problem h3,
+.founder-name {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+.hero-title { font-weight: 300; }
+
+/* Eyebrows / mono labels → brand grotesk, brighter purple */
+.section-eyebrow,
+.price-card-name,
+.pricing-label,
+.timeline-time,
+.founder-title,
+.address-card h4,
+.footer-col h5 {
+  font-family: var(--font-body);
+  color: var(--purple-light);
+}
+
+/* NAV — dark glass with an outlined CTA (matches the Framer hero) */
+nav {
+  background: rgba(9,9,9,0.72);
+  border-bottom: 1px solid var(--border);
+}
+.nav-logo { color: var(--purple-light); }
+.nav-links a { color: var(--text-muted); }
+.nav-links a:hover { color: #fff; }
+.nav-cta {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.16);
+  color: #fff;
+  border-radius: 10px;
+}
+.nav-cta:hover { background: rgba(108,30,227,0.16); border-color: var(--purple); }
+
+/* HERO block on the subscription page */
+.hero-block { background: var(--gradient-hero); }
+#hero { background: var(--gradient-hero); }
+
+/* BUTTONS */
+.btn-primary { box-shadow: 0 8px 28px rgba(108,30,227,0.35); }
+.btn-primary:hover { box-shadow: 0 12px 36px rgba(108,30,227,0.45); }
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.btn-outline:hover { border-color: var(--purple); color: #fff; background: rgba(108,30,227,0.14); }
+
+/* Brighten purple numerics for contrast on dark */
+.price-card-amount,
+.pricing-amount,
+.hero-stat-val,
+.trust-val { color: var(--purple-light); }
+
+/* feat dots / icon chips */
+.feat-dot,
+.faq-icon { background: rgba(108,30,227,0.18); color: var(--purple-light); }
+
+/* CARDS — give surfaces a visible panel + dark hovers (no white flashes) */
+.amenity-card,
+.diff-card { background: var(--surface); border-color: var(--border); }
+.amenity-card:hover,
+.diff-card:hover,
+.feature-card:hover,
+.testimonial-card:hover,
+.founder-card:hover,
+.problem-card:hover {
+  background: var(--surface-2);
+  border-color: var(--purple);
+  box-shadow: 0 12px 40px rgba(108,30,227,0.18);
+}
+.price-card:hover { box-shadow: 0 12px 40px rgba(108,30,227,0.18); }
+.price-card-featured { border-color: rgba(108,30,227,0.45); box-shadow: 0 24px 80px rgba(108,30,227,0.22); }
+
+/* Light section backgrounds → transparent dark */
+#about, #amenities, #location, #faq, #space, #pricing,
+.landing-section[style*="--white"] { background: transparent; }
+
+/* FOOTER — dark panel (was using --text which is now light) */
+.site-footer { background: #0c0c0e; border-top: 1px solid var(--border); }
+
+/* SUBSCRIBE MODAL — dark inputs */
+.subscribe-modal { box-shadow: 0 24px 80px rgba(0,0,0,0.6); }
+.subscribe-field input,
+.subscribe-mobile-wrap,
+.subscribe-mobile-wrap input { background: var(--bg); color: var(--text); }
+.subscribe-prefix { background: var(--surface-2); }
+.subscribe-close { background: var(--surface-2); color: var(--text-muted); }
+.subscribe-close:hover { background: var(--purple); color: #fff; }
+
+/* VIDEO nav buttons */
+.video-nav { background: var(--surface); color: var(--text); }
+.video-nav:hover { background: rgba(108,30,227,0.14); }
 

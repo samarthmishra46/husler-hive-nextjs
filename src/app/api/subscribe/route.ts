@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import { createSubscription, generateSubscriptionId } from '@/lib/cashfree';
+import { getPlan } from '@/lib/plans';
 
 export async function POST(request: NextRequest) {
   try {
     await dbConnect();
 
-    const { email, mobile, plan = 'monthly' } = await request.json();
+    const { email, mobile, plan = 'foundation-1m' } = await request.json();
 
     if (!email || !mobile) {
       return NextResponse.json(
@@ -16,7 +17,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!['monthly', 'quarterly'].includes(plan)) {
+    const planDef = getPlan(plan);
+    if (!planDef || planDef.billing !== 'recurring') {
       return NextResponse.json(
         { error: 'Invalid plan type' },
         { status: 400 }

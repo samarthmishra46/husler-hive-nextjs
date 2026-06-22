@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { PlanType } from '@/app/page';
+import { PLANS } from '@/lib/plans';
+import type { PlanKey } from '@/lib/plans';
 
 declare global {
   interface Window {
@@ -10,17 +11,16 @@ declare global {
         subsSessionId: string;
         redirectTarget?: string;
       }) => Promise<{ error?: { message: string } }>;
+      checkout: (options: {
+        paymentSessionId: string;
+        redirectTarget?: string;
+      }) => Promise<{ error?: { message: string } }>;
     };
   }
 }
 
-const PLAN_DETAILS: Record<PlanType, { name: string; price: string; period: string }> = {
-  monthly: { name: 'Monthly Membership', price: '₹4,999', period: '/month' },
-  quarterly: { name: '3-Month Bundle', price: '₹12,997', period: '(save 15%)' },
-};
-
 interface SubscribeFormProps {
-  plan: PlanType;
+  plan: PlanKey;
   onClose: () => void;
 }
 
@@ -31,9 +31,9 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
   const [error, setError] = useState('');
   const [sdkReady, setSdkReady] = useState(false);
   const [showTrialExpiredPopup, setShowTrialExpiredPopup] = useState(false);
-  const [eligibleForTrial, setEligibleForTrial] = useState(true);
 
-  const planInfo = PLAN_DETAILS[plan];
+  const planInfo = PLANS[plan];
+  const isRecurring = planInfo.billing === 'recurring';
 
   // Load Cashfree SDK on mount
   useEffect(() => {
@@ -42,7 +42,7 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
         setSdkReady(true);
         return;
       }
-      
+
       const script = document.createElement('script');
       script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
       script.async = true;
@@ -53,50 +53,52 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
     }
   }, []);
 
+  const validate = (): boolean => {
+    if (!email || !mobile) {
+      setError('Please fill in all fields');
+      return false;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Please enter a valid email');
+      return false;
+    }
+    if (!/^[6-9]\d{9}$/.test(mobile)) {
+      setError('Please enter a valid 10-digit Indian mobile number');
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    // Validate
-    if (!email || !mobile) {
-      setError('Please fill in all fields');
-      setLoading(false);
-      return;
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('Please enter a valid email');
-      setLoading(false);
-      return;
-    }
-
-    if (!/^[6-9]\d{9}$/.test(mobile)) {
-      setError('Please enter a valid 10-digit Indian mobile number');
+    if (!validate()) {
       setLoading(false);
       return;
     }
 
     try {
-      // First check if user is eligible for trial
-      const checkRes = await fetch('/api/check-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
+      if (isRecurring) {
+        // Recurring plans get a 7-day trial — check eligibility first.
+        const checkRes = await fetch('/api/check-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const checkData = await checkRes.json();
 
-      const checkData = await checkRes.json();
-
-      if (!checkData.eligibleForTrial) {
-        // User not eligible for trial - show popup
-        setEligibleForTrial(false);
-        setShowTrialExpiredPopup(true);
-        setLoading(false);
-        return;
+        if (!checkData.eligibleForTrial) {
+          setShowTrialExpiredPopup(true);
+          setLoading(false);
+          return;
+        }
+        await proceedToSubscription();
+      } else {
+        // One-time products charge the full amount immediately.
+        await proceedToOrder();
       }
-
-      // User is eligible for trial, proceed with subscription
-      await proceedToPayment();
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Something went wrong. Please try again.'
@@ -105,41 +107,63 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
     }
   };
 
-  const proceedToPayment = async () => {
+  const proceedToSubscription = async () => {
     setLoading(true);
     setShowTrialExpiredPopup(false);
-    
+
     try {
       const res = await fetch('/api/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, mobile, plan }),
       });
-
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Something went wrong');
-      }
+      if (!res.ok) throw new Error(data.error || 'Something went wrong');
 
       if (data.subscriptionSessionId && sdkReady && window.Cashfree) {
-        // Initialize Cashfree SDK
-        const cashfree = window.Cashfree({
-          mode: 'production'
-        });
-
-        // Open subscription checkout
+        const cashfree = window.Cashfree({ mode: 'production' });
         const result = await cashfree.subscriptionsCheckout({
           subsSessionId: data.subscriptionSessionId,
-          redirectTarget: '_blank'
+          redirectTarget: '_blank',
         });
-
         if (result.error) {
           setError(result.error.message || 'Payment failed. Please try again.');
         }
       } else if (data.paymentLink) {
-        // Fallback to direct redirect
         window.location.href = data.paymentLink;
+      } else {
+        setError('Failed to initialize payment. Please try again.');
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const proceedToOrder = async () => {
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, mobile, plan }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Something went wrong');
+
+      if (data.paymentSessionId && sdkReady && window.Cashfree) {
+        const cashfree = window.Cashfree({ mode: 'production' });
+        const result = await cashfree.checkout({
+          paymentSessionId: data.paymentSessionId,
+          redirectTarget: '_blank',
+        });
+        if (result.error) {
+          setError(result.error.message || 'Payment failed. Please try again.');
+        }
       } else {
         setError('Failed to initialize payment. Please try again.');
       }
@@ -154,7 +178,7 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
 
   return (
     <div className="subscribe-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      {/* Trial Expired Popup */}
+      {/* Trial Expired Popup (recurring plans only) */}
       {showTrialExpiredPopup && (
         <div style={{
           position: 'fixed',
@@ -178,21 +202,21 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
             boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
           }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏰</div>
-            <h3 style={{ 
-              fontSize: '1.4rem', 
-              fontWeight: 700, 
-              color: '#1a1a2e', 
-              marginBottom: '12px' 
+            <h3 style={{
+              fontSize: '1.4rem',
+              fontWeight: 700,
+              color: '#1a1a2e',
+              marginBottom: '12px'
             }}>
               Your Free Trial Has Expired
             </h3>
-            <p style={{ 
-              color: '#666666', 
+            <p style={{
+              color: '#666666',
               marginBottom: '24px',
               fontSize: '0.95rem',
               lineHeight: 1.5
             }}>
-              You&apos;ve already used your 7-day free trial. You&apos;ll be charged {planInfo.price} immediately upon subscription.
+              You&apos;ve already used your 7-day free trial. You&apos;ll be charged {planInfo.priceLabel} immediately upon subscription.
             </p>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
               <button
@@ -210,7 +234,7 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
                 Cancel
               </button>
               <button
-                onClick={proceedToPayment}
+                onClick={proceedToSubscription}
                 disabled={loading}
                 style={{
                   padding: '12px 24px',
@@ -235,23 +259,27 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
 
         <h2 className="subscribe-heading">Get Started</h2>
         <p className="subscribe-subheading">
-          Enter your details to start your membership
+          Enter your details to {isRecurring ? 'start your membership' : 'complete your purchase'}
         </p>
 
         {/* Selected Plan Info */}
-        <div style={{ 
-          background: 'rgba(124,58,237,0.1)', 
-          border: '1px solid rgba(124,58,237,0.2)', 
-          borderRadius: '12px', 
-          padding: '16px', 
+        <div style={{
+          background: 'rgba(124,58,237,0.1)',
+          border: '1px solid rgba(124,58,237,0.2)',
+          borderRadius: '12px',
+          padding: '16px',
           marginBottom: '20px',
           textAlign: 'center'
         }}>
           <div style={{ fontWeight: 600, color: 'var(--purple)', fontSize: '0.9rem' }}>{planInfo.name}</div>
           <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text)' }}>
-            {planInfo.price} <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--text-muted)' }}>{planInfo.period}</span>
+            {planInfo.priceLabel} <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--text-muted)' }}>{planInfo.period}</span>
           </div>
-          <div style={{ fontSize: '0.8rem', color: '#10b981', marginTop: '4px' }}>🎉 7-day free trial included</div>
+          {isRecurring ? (
+            <div style={{ fontSize: '0.8rem', color: '#10b981', marginTop: '4px' }}>🎉 7-day free trial included</div>
+          ) : (
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>One-time payment • Lifetime access</div>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="subscribe-form">
@@ -296,12 +324,12 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
                 Processing...
               </span>
             ) : (
-              'Continue to Payment →'
+              isRecurring ? 'Continue to Payment →' : `Pay ${planInfo.priceLabel} →`
             )}
           </button>
 
           <p className="subscribe-terms">
-            By subscribing, you agree to our Terms & Privacy Policy
+            By {isRecurring ? 'subscribing' : 'purchasing'}, you agree to our Terms &amp; Privacy Policy
           </p>
         </form>
       </div>

@@ -1,4 +1,22 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
+import type { PlanKey } from '@/lib/plans';
+
+// Legacy plan keys kept so existing rows validate. New purchases use PlanKey.
+type StoredPlan = PlanKey | 'monthly' | 'quarterly';
+
+const PLAN_ENUM: StoredPlan[] = [
+  'foundation-1m',
+  'foundation-3m',
+  'tradefloor-1m',
+  'tradefloor-3m',
+  'elite-59999',
+  'elite-64999',
+  'link1',
+  'link2',
+  'link3',
+  'monthly',
+  'quarterly',
+];
 
 export interface IUserDocument extends Document {
   email: string;
@@ -7,8 +25,11 @@ export interface IUserDocument extends Document {
   discordUsername?: string;
   discordAccessToken?: string;
   cashfreeSubscriptionId?: string;
+  cashfreeOrderId?: string;
   subscriptionStatus: 'none' | 'trial' | 'active' | 'expired';
-  plan?: 'monthly' | 'quarterly';
+  plan?: StoredPlan;
+  /** One-time / paid-in-advance buyers — never expired or kicked. */
+  lifetime: boolean;
   trialUsed: boolean;
   channelAdded: boolean;
   welcomeEmailSent: boolean;
@@ -26,6 +47,7 @@ const UserSchema = new Schema<IUserDocument>(
     discordUsername: { type: String, default: null },
     discordAccessToken: { type: String, default: null },
     cashfreeSubscriptionId: { type: String, default: null },
+    cashfreeOrderId: { type: String, default: null },
     subscriptionStatus: {
       type: String,
       enum: ['none', 'trial', 'active', 'expired'],
@@ -33,9 +55,10 @@ const UserSchema = new Schema<IUserDocument>(
     },
     plan: {
       type: String,
-      enum: ['monthly', 'quarterly'],
-      default: 'monthly',
+      enum: PLAN_ENUM,
+      default: 'foundation-1m',
     },
+    lifetime: { type: Boolean, default: false },
     trialUsed: { type: Boolean, default: false },
     channelAdded: { type: Boolean, default: false },
     welcomeEmailSent: { type: Boolean, default: false },
@@ -49,6 +72,7 @@ UserSchema.index({ email: 1 }, { unique: true });
 UserSchema.index({ mobile: 1 });
 UserSchema.index({ discordId: 1 });
 UserSchema.index({ cashfreeSubscriptionId: 1 });
+UserSchema.index({ cashfreeOrderId: 1 });
 
 const User: Model<IUserDocument> =
   mongoose.models.User || mongoose.model<IUserDocument>('User', UserSchema);

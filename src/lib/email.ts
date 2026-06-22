@@ -1,12 +1,21 @@
 import { Resend } from 'resend';
 import type { IUserDocument } from '@/models/User';
+import { getPlan } from '@/lib/plans';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const PLAN_LABELS = {
+// Legacy keys kept so emails for older rows still render a label.
+const LEGACY_PLAN_LABELS: Record<string, { name: string; price: string }> = {
   monthly: { name: 'Monthly Membership', price: '₹4,999 / month' },
   quarterly: { name: '3-Month Bundle', price: '₹12,997 / 3 months' },
-} as const;
+};
+
+function planLabel(planKey?: string): { name: string; price: string } {
+  const def = planKey ? getPlan(planKey) : undefined;
+  if (def) return { name: def.name, price: `${def.priceLabel} ${def.period}` };
+  if (planKey && LEGACY_PLAN_LABELS[planKey]) return LEGACY_PLAN_LABELS[planKey];
+  return { name: 'Membership', price: '' };
+}
 
 /**
  * Send the post-payment welcome email — payment summary + the verify URL
@@ -21,8 +30,10 @@ export async function sendWelcomeEmailIfNeeded(user: IUserDocument): Promise<voi
     console.log(`[email] skip welcome (already sent) → ${user.email} sub=${user.cashfreeSubscriptionId}`);
     return;
   }
-  if (!user.cashfreeSubscriptionId) {
-    console.log(`[email] skip welcome (no subscription id) → ${user.email}`);
+  // Subscriptions verify by sub_id; one-time orders by order_id. Need at least one.
+  const referenceId = user.cashfreeSubscriptionId || user.cashfreeOrderId;
+  if (!referenceId) {
+    console.log(`[email] skip welcome (no subscription/order id) → ${user.email}`);
     return;
   }
   if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL) {
@@ -31,8 +42,10 @@ export async function sendWelcomeEmailIfNeeded(user: IUserDocument): Promise<voi
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.hustlershive.club';
-  const verifyUrl = `${appUrl}/payment/verify?sub_id=${encodeURIComponent(user.cashfreeSubscriptionId)}`;
-  const plan = PLAN_LABELS[user.plan || 'monthly'];
+  const verifyUrl = user.cashfreeSubscriptionId
+    ? `${appUrl}/payment/verify?sub_id=${encodeURIComponent(user.cashfreeSubscriptionId)}`
+    : `${appUrl}/payment/verify?order_id=${encodeURIComponent(user.cashfreeOrderId!)}`;
+  const plan = planLabel(user.plan);
   const trial = user.subscriptionStatus === 'trial';
 
   const html = `
@@ -64,8 +77,8 @@ export async function sendWelcomeEmailIfNeeded(user: IUserDocument): Promise<voi
             <td style="padding: 4px 0; text-align: right; font-weight: 600;">${trial ? 'Trial active' : 'Active'}</td>
           </tr>
           <tr>
-            <td style="padding: 4px 0; color: #6b6b8a;">Subscription ID</td>
-            <td style="padding: 4px 0; text-align: right; font-family: ui-monospace, monospace; font-size: 0.8rem;">${user.cashfreeSubscriptionId}</td>
+            <td style="padding: 4px 0; color: #6b6b8a;">Reference ID</td>
+            <td style="padding: 4px 0; text-align: right; font-family: ui-monospace, monospace; font-size: 0.8rem;">${referenceId}</td>
           </tr>
         </table>
       </div>
@@ -89,7 +102,7 @@ export async function sendWelcomeEmailIfNeeded(user: IUserDocument): Promise<voi
     </div>
   `;
 
-  console.log(`[email] sending welcome → ${user.email} sub=${user.cashfreeSubscriptionId} plan=${user.plan || 'monthly'} status=${user.subscriptionStatus}`);
+  console.log(`[email] sending welcome → ${user.email} ref=${referenceId} plan=${user.plan || 'unknown'} status=${user.subscriptionStatus}`);
 
   try {
     const { data, error } = await resend.emails.send({

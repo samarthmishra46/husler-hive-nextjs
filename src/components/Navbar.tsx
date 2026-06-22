@@ -19,13 +19,9 @@ export default function Navbar() {
 
   return (
     <nav>
-      <Link href="/#hero" className="nav-logo">Hustler&apos;s Hive</Link>
+      <Link href="/" className="nav-logo">Hustler&apos;s Hive</Link>
       <ul className="nav-links">
-        <li><Link href="/#how">How It Works</Link></li>
-        <li><Link href="/#features">What You Get</Link></li>
-        <li><Link href="/#testimonials">Reviews</Link></li>
-        <li><Link href="/#pricing">Pricing</Link></li>
-        <li><Link href="/#faq">FAQ</Link></li>
+        <li><Link href="/#plans">Plans</Link></li>
       </ul>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <button
