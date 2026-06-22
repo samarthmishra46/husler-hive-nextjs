@@ -19,12 +19,11 @@ declare global {
   }
 }
 
-interface SubscribeFormProps {
+interface CheckoutFormProps {
   plan: PlanKey;
-  onClose: () => void;
 }
 
-export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
+export default function CheckoutForm({ plan }: CheckoutFormProps) {
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
   const [loading, setLoading] = useState(false);
@@ -122,23 +121,26 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
 
       if (data.subscriptionSessionId && sdkReady && window.Cashfree) {
         const cashfree = window.Cashfree({ mode: 'production' });
+        // Same-tab redirect — opening a new tab here is blocked by popup
+        // blockers because it happens after an await (user gesture is spent).
         const result = await cashfree.subscriptionsCheckout({
           subsSessionId: data.subscriptionSessionId,
-          redirectTarget: '_blank',
+          redirectTarget: '_self',
         });
         if (result.error) {
           setError(result.error.message || 'Payment failed. Please try again.');
+          setLoading(false);
         }
       } else if (data.paymentLink) {
         window.location.href = data.paymentLink;
       } else {
         setError('Failed to initialize payment. Please try again.');
+        setLoading(false);
       }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Something went wrong. Please try again.'
       );
-    } finally {
       setLoading(false);
     }
   };
@@ -159,59 +161,58 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
         const cashfree = window.Cashfree({ mode: 'production' });
         const result = await cashfree.checkout({
           paymentSessionId: data.paymentSessionId,
-          redirectTarget: '_blank',
+          redirectTarget: '_self',
         });
         if (result.error) {
           setError(result.error.message || 'Payment failed. Please try again.');
+          setLoading(false);
         }
       } else {
         setError('Failed to initialize payment. Please try again.');
+        setLoading(false);
       }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Something went wrong. Please try again.'
       );
-    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="subscribe-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <>
       {/* Trial Expired Popup (recurring plans only) */}
       {showTrialExpiredPopup && (
         <div style={{
           position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.5)',
+          inset: 0,
+          background: 'rgba(0,0,0,0.6)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 9999,
         }}>
           <div style={{
-            background: '#ffffff',
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
             borderRadius: '16px',
             padding: '32px',
             maxWidth: '400px',
             width: '90%',
             textAlign: 'center',
-            boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+            boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
           }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏰</div>
             <h3 style={{
               fontSize: '1.4rem',
-              fontWeight: 700,
-              color: '#1a1a2e',
+              fontWeight: 600,
+              color: 'var(--text)',
               marginBottom: '12px'
             }}>
               Your Free Trial Has Expired
             </h3>
             <p style={{
-              color: '#666666',
+              color: 'var(--text-muted)',
               marginBottom: '24px',
               fontSize: '0.95rem',
               lineHeight: 1.5
@@ -224,9 +225,9 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
                 style={{
                   padding: '12px 24px',
                   borderRadius: '8px',
-                  border: '1px solid #e0e0e0',
-                  background: '#f5f5f5',
-                  color: '#333333',
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface-2)',
+                  color: 'var(--text)',
                   cursor: 'pointer',
                   fontWeight: 500,
                 }}
@@ -240,7 +241,7 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
                   padding: '12px 24px',
                   borderRadius: '8px',
                   border: 'none',
-                  background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+                  background: 'linear-gradient(135deg, var(--purple) 0%, var(--purple-light) 100%)',
                   color: '#fff',
                   cursor: 'pointer',
                   fontWeight: 600,
@@ -253,86 +254,76 @@ export default function SubscribeForm({ plan, onClose }: SubscribeFormProps) {
         </div>
       )}
 
-      <div className="subscribe-modal">
-        {/* Close button */}
-        <button onClick={onClose} className="subscribe-close">✕</button>
+      {/* Selected Plan Info */}
+      <div style={{
+        background: 'rgba(108,30,227,0.12)',
+        border: '1px solid rgba(108,30,227,0.25)',
+        borderRadius: '12px',
+        padding: '16px',
+        marginBottom: '20px',
+        textAlign: 'center'
+      }}>
+        <div style={{ fontWeight: 600, color: 'var(--purple-light)', fontSize: '0.9rem' }}>{planInfo.name}</div>
+        <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text)' }}>
+          {planInfo.priceLabel} <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--text-muted)' }}>{planInfo.period}</span>
+        </div>
+        {isRecurring ? (
+          <div style={{ fontSize: '0.8rem', color: '#10b981', marginTop: '4px' }}>🎉 7-day free trial included</div>
+        ) : (
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>One-time payment • Lifetime access</div>
+        )}
+      </div>
 
-        <h2 className="subscribe-heading">Get Started</h2>
-        <p className="subscribe-subheading">
-          Enter your details to {isRecurring ? 'start your membership' : 'complete your purchase'}
-        </p>
-
-        {/* Selected Plan Info */}
-        <div style={{
-          background: 'rgba(124,58,237,0.1)',
-          border: '1px solid rgba(124,58,237,0.2)',
-          borderRadius: '12px',
-          padding: '16px',
-          marginBottom: '20px',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontWeight: 600, color: 'var(--purple)', fontSize: '0.9rem' }}>{planInfo.name}</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text)' }}>
-            {planInfo.priceLabel} <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--text-muted)' }}>{planInfo.period}</span>
-          </div>
-          {isRecurring ? (
-            <div style={{ fontSize: '0.8rem', color: '#10b981', marginTop: '4px' }}>🎉 7-day free trial included</div>
-          ) : (
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>One-time payment • Lifetime access</div>
-          )}
+      <form onSubmit={handleSubmit} className="subscribe-form">
+        <div className="subscribe-field">
+          <label htmlFor="email">Email Address</label>
+          <input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            required
+          />
         </div>
 
-        <form onSubmit={handleSubmit} className="subscribe-form">
-          <div className="subscribe-field">
-            <label htmlFor="email">Email Address</label>
+        <div className="subscribe-field">
+          <label htmlFor="mobile">Mobile Number</label>
+          <div className="subscribe-mobile-wrap">
+            <span className="subscribe-prefix">+91</span>
             <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              id="mobile"
+              type="tel"
+              value={mobile}
+              onChange={(e) => setMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              placeholder="9876543210"
               required
             />
           </div>
+        </div>
 
-          <div className="subscribe-field">
-            <label htmlFor="mobile">Mobile Number</label>
-            <div className="subscribe-mobile-wrap">
-              <span className="subscribe-prefix">+91</span>
-              <input
-                id="mobile"
-                type="tel"
-                value={mobile}
-                onChange={(e) => setMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                placeholder="9876543210"
-                required
-              />
-            </div>
-          </div>
+        {error && (
+          <div className="subscribe-error">{error}</div>
+        )}
 
-          {error && (
-            <div className="subscribe-error">{error}</div>
+        <button type="submit" disabled={loading} className="btn-primary subscribe-submit">
+          {loading ? (
+            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <svg style={{ width: 20, height: 20, animation: 'spin 1s linear infinite' }} viewBox="0 0 24 24" fill="none">
+                <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Processing...
+            </span>
+          ) : (
+            isRecurring ? 'Continue to Payment →' : `Pay ${planInfo.priceLabel} →`
           )}
+        </button>
 
-          <button type="submit" disabled={loading} className="btn-primary subscribe-submit">
-            {loading ? (
-              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                <svg style={{ width: 20, height: 20, animation: 'spin 1s linear infinite' }} viewBox="0 0 24 24" fill="none">
-                  <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Processing...
-              </span>
-            ) : (
-              isRecurring ? 'Continue to Payment →' : `Pay ${planInfo.priceLabel} →`
-            )}
-          </button>
-
-          <p className="subscribe-terms">
-            By {isRecurring ? 'subscribing' : 'purchasing'}, you agree to our Terms &amp; Privacy Policy
-          </p>
-        </form>
-      </div>
-    </div>
+        <p className="subscribe-terms">
+          By {isRecurring ? 'subscribing' : 'purchasing'}, you agree to our Terms &amp; Privacy Policy
+        </p>
+      </form>
+    </>
   );
 }

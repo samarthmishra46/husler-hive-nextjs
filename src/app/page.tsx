@@ -1,18 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import SubscribeForm from '@/components/SubscribeForm';
+import { useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { PLAN_LIST, isPlanKey } from '@/lib/plans';
-import type { PlanKey, PlanDef } from '@/lib/plans';
-
-const DEFAULT_PLAN: PlanKey = 'foundation-1m';
+import type { PlanDef } from '@/lib/plans';
 
 const recurringPlans = PLAN_LIST.filter((p) => p.billing === 'recurring');
 const oneTimePlans = PLAN_LIST.filter((p) => p.billing === 'onetime');
 
-function PlanCard({ plan, onSelect, highlighted }: { plan: PlanDef; onSelect: (k: PlanKey) => void; highlighted: boolean }) {
+function PlanCard({ plan }: { plan: PlanDef }) {
   return (
-    <div className={`price-card${plan.badge ? ' price-card-featured' : ''}`} style={highlighted ? { outline: '2px solid var(--purple)', outlineOffset: '2px' } : undefined}>
+    <div className={`price-card${plan.badge ? ' price-card-featured' : ''}`}>
       {plan.badge && <div className="pricing-badge">{plan.badge}</div>}
       <div className="price-card-name">{plan.name}</div>
       <div className="price-card-amount">{plan.priceLabel}</div>
@@ -22,51 +21,25 @@ function PlanCard({ plan, onSelect, highlighted }: { plan: PlanDef; onSelect: (k
           <li key={i}><span className="feat-dot">✓</span> {f}</li>
         ))}
       </ul>
-      <button onClick={() => onSelect(plan.key)} className="btn-primary price-card-btn">
+      <Link href={`/checkout/${plan.key}`} className="btn-primary price-card-btn">
         {plan.billing === 'recurring' ? 'Start Free Trial' : 'Buy Now'}
-      </button>
+      </Link>
     </div>
   );
 }
 
 export default function Home() {
-  const [showForm, setShowForm] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<PlanKey>(DEFAULT_PLAN);
+  const router = useRouter();
 
-  function openPlan(key: PlanKey) {
-    setSelectedPlan(key);
-    setShowForm(true);
-  }
-
-  // Deep-link support (?plan=<key> from the Framer pricing buttons), the navbar
-  // `open-subscribe` event, and the cross-route `?signup=1` fallback.
+  // Deep links (?plan=<key> from the Framer pricing buttons) now go to a
+  // dedicated focused checkout page. Redirect so existing links keep working.
   useEffect(() => {
-    function onOpen() { setShowForm(true); }
-    window.addEventListener('open-subscribe', onOpen);
-
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const planParam = params.get('plan');
-      const wantsSignup = params.get('signup') === '1';
-
-      if (planParam && isPlanKey(planParam)) {
-        setSelectedPlan(planParam);
-        setShowForm(true);
-      } else if (wantsSignup) {
-        setShowForm(true);
-      }
-
-      // Strip params so a refresh doesn't keep re-opening the modal.
-      if (planParam || wantsSignup) {
-        const url = new URL(window.location.href);
-        url.searchParams.delete('plan');
-        url.searchParams.delete('signup');
-        window.history.replaceState({}, '', url.toString());
-      }
+    if (typeof window === 'undefined') return;
+    const planParam = new URLSearchParams(window.location.search).get('plan');
+    if (planParam && isPlanKey(planParam)) {
+      router.replace(`/checkout/${planParam}`);
     }
-
-    return () => window.removeEventListener('open-subscribe', onOpen);
-  }, []);
+  }, [router]);
 
   return (
     <main>
@@ -92,7 +65,7 @@ export default function Home() {
         </div>
         <div className="pricing-grid">
           {recurringPlans.map((plan) => (
-            <PlanCard key={plan.key} plan={plan} onSelect={openPlan} highlighted={selectedPlan === plan.key && showForm} />
+            <PlanCard key={plan.key} plan={plan} />
           ))}
         </div>
       </section>
@@ -110,14 +83,10 @@ export default function Home() {
         </div>
         <div className="pricing-grid">
           {oneTimePlans.map((plan) => (
-            <PlanCard key={plan.key} plan={plan} onSelect={openPlan} highlighted={selectedPlan === plan.key && showForm} />
+            <PlanCard key={plan.key} plan={plan} />
           ))}
         </div>
       </section>
-
-      {showForm && (
-        <SubscribeForm plan={selectedPlan} onClose={() => setShowForm(false)} />
-      )}
     </main>
   );
 }

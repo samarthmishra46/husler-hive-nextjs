@@ -645,3 +645,50 @@ nav {
 .video-nav { background: var(--surface); color: var(--text); }
 .video-nav:hover { background: rgba(108,30,227,0.14); }
 
+/* ============================================================ */
+/* DEDICATED CHECKOUT PAGE (/checkout/[plan]) — login-style     */
+/* ============================================================ */
+.checkout-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background: var(--gradient-hero);
+}
+.checkout-card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 40px 36px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+}
+.checkout-logo {
+  display: inline-block;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--purple-light);
+  text-decoration: none;
+  margin-bottom: 24px;
+}
+.checkout-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.6rem;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin: 0;
+}
+.checkout-sub {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 6px 0 24px;
+}
+@media (max-width: 600px) {
+  .checkout-card { padding: 28px 20px; }
+}
+

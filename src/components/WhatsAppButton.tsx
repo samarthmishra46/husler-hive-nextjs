@@ -1,12 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 
 const WHATSAPP_NUMBER = "918807754706"; // ← Replace with your number
 const WHATSAPP_MESSAGE = "Hi! I need help with Hustler's Hive.";
 
 export default function WhatsAppButton() {
   const [isHovered, setIsHovered] = useState(false);
+  const pathname = usePathname();
+
+  // Checkout pages are intentionally minimal — no global chrome.
+  if (pathname.startsWith("/checkout")) return null;
 
   const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`;
 
