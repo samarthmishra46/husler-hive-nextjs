@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 import type { IUserDocument } from '@/models/User';
 import { getPlan } from '@/lib/plans';
+import { APP_URL } from '@/lib/appUrl';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -41,10 +42,9 @@ export async function sendWelcomeEmailIfNeeded(user: IUserDocument): Promise<voi
     return;
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.hustlershive.club';
   const verifyUrl = user.cashfreeSubscriptionId
-    ? `${appUrl}/payment/verify?sub_id=${encodeURIComponent(user.cashfreeSubscriptionId)}`
-    : `${appUrl}/payment/verify?order_id=${encodeURIComponent(user.cashfreeOrderId!)}`;
+    ? `${APP_URL}/payment/verify?sub_id=${encodeURIComponent(user.cashfreeSubscriptionId)}`
+    : `${APP_URL}/payment/verify?order_id=${encodeURIComponent(user.cashfreeOrderId!)}`;
   const plan = planLabel(user.plan);
   const trial = user.subscriptionStatus === 'trial';
 

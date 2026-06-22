@@ -3,6 +3,7 @@ import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import { createSubscription, generateSubscriptionId } from '@/lib/cashfree';
 import { getPlan } from '@/lib/plans';
+import { appUrl } from '@/lib/appUrl';
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
       customerEmail: email,
       customerPhone: mobile,
       trialDays,
-      returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/return?sub_id=${subscriptionId}`,
+      returnUrl: appUrl(`/api/payment/return?sub_id=${subscriptionId}`),
     });
 
     if (result.type === 'invalid_request_error' || result.code || result.status === 'ERROR') {

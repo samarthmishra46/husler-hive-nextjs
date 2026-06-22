@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createOrder, generateOrderId } from '@/lib/cashfree';
 import { getPlan } from '@/lib/plans';
+import { appUrl } from '@/lib/appUrl';
 
 // Creates a one-time Cashfree order for the "One time" products. No DB write
 // happens here — the user record is materialized by the order webhook only
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
       customerEmail: email,
       customerPhone: mobile,
       planKey: planDef.key,
-      returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/return?order_id=${orderId}`,
+      returnUrl: appUrl(`/api/payment/return?order_id=${orderId}`),
     });
 
     if (result.type === 'invalid_request_error' || result.code || !result.payment_session_id) {

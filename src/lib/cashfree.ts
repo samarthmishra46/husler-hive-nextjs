@@ -77,7 +77,10 @@ export async function createSubscription(params: {
       customer_phone: params.customerPhone, // Just 10 digits, no +91
     },
     plan_details: {
-      plan_name: planConfig.name,
+      // Cashfree only allows alphanumerics + a few special chars in plan_name
+      // (no parentheses), so strip anything else. The display name in plans.ts
+      // keeps its original formatting for the website.
+      plan_name: planConfig.name.replace(/[^a-zA-Z0-9 -]/g, ' ').replace(/\s+/g, ' ').trim(),
       plan_type: 'PERIODIC',
       plan_amount: planConfig.amount,
       plan_max_amount: planConfig.amount,

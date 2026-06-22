@@ -9,6 +9,7 @@ import {
   addRoleToUser,
   getGuildMember,
 } from '@/lib/discord';
+import { APP_URL } from '@/lib/appUrl';
 
 // Helper to add role with retry logic
 async function addRoleWithRetry(discordUserId: string, maxRetries = 3): Promise<boolean> {
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
 
     if (!code) {
       return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL}/discord/connect?error=no_code`
+        `${APP_URL}/discord/connect?error=no_code`
       );
     }
 
@@ -96,7 +97,7 @@ export async function GET(request: NextRequest) {
 
     // Extract userId and popup flag from state parameter
     const { userId: stateUserId, isPopup } = parseState(state);
-    const base = process.env.NEXT_PUBLIC_APP_URL;
+    const base = APP_URL;
     const successUrl = isPopup ? `${base}/discord/done?discord=connected` : `${base}/dashboard?discord=connected`;
     const reconnectUrl = isPopup ? `${base}/discord/done?discord=reconnected` : `${base}/dashboard?discord=reconnected`;
 
@@ -215,7 +216,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Discord callback error:', error);
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/discord/connect?error=callback_failed`
+      `${APP_URL}/discord/connect?error=callback_failed`
     );
   }
 }
