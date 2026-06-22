@@ -13,7 +13,10 @@ export default function Footer() {
     <footer className="site-footer">
       <div className="footer-top">
         <div className="footer-brand">
-          <Link href="/#hero" className="footer-logo">Hustler's Hive</Link>
+          <Link href="/" className="footer-logo">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="Hustler's Hive" />
+          </Link>
           <p>Trade Exactly Like <br />Your Mentors Do.</p>
         </div>
         <div className="footer-col">

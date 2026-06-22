@@ -176,7 +176,8 @@ nav {
 /* FOOTER */
 .site-footer { background: var(--text); padding: 44px 48px 32px; }
 .footer-top { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 40px; padding-bottom: 48px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-.footer-logo { font-size: 1rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--purple-light); text-decoration: none; display: block; margin-bottom: 12px; }
+.footer-logo { display: inline-block; text-decoration: none; margin-bottom: 12px; }
+.footer-logo img { display: block; height: 30px; width: auto; }
 .footer-brand p { font-size: 0.82rem; color: rgba(255,255,255,0.35); max-width: 220px; line-height: 1.7; margin: 0; }
 .footer-col h5 { font-family: 'Space Mono', monospace; font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 16px; }
 .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 10px; padding: 0; margin: 0; }
@@ -574,7 +575,8 @@ nav {
   background: rgba(9,9,9,0.72);
   border-bottom: 1px solid var(--border);
 }
-.nav-logo { color: var(--purple-light); }
+.nav-logo { color: var(--purple-light); display: inline-flex; align-items: center; }
+.nav-logo img { display: block; height: 30px; width: auto; }
 .nav-links a { color: var(--text-muted); }
 .nav-links a:hover { color: #fff; }
 .nav-cta {
@@ -659,21 +661,21 @@ nav {
 .checkout-card {
   width: 100%;
   max-width: 440px;
-  background: var(--surface);
+  background: #0e0e0e;
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: 8px;
   padding: 40px 36px;
   box-shadow: 0 24px 80px rgba(0,0,0,0.5);
 }
 .checkout-logo {
   display: inline-block;
-  font-size: 0.9rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--purple-light);
   text-decoration: none;
   margin-bottom: 24px;
+}
+.checkout-logo img {
+  display: block;
+  height: 38px;
+  width: auto;
 }
 .checkout-title {
   font-family: var(--font-display);
@@ -691,4 +693,29 @@ nav {
 @media (max-width: 600px) {
   .checkout-card { padding: 28px 20px; }
 }
+
+/* ---- UI refinements (less bold, taller button, 8px radii, brand-font inputs) ---- */
+
+/* Lighter weights across headings/labels */
+.price-card-amount,
+.pricing-amount { font-weight: 500; }
+.subscribe-field label { font-weight: 500; }
+.section-title { font-weight: 400; }
+
+/* Cards: smaller 8px radius to match the main site */
+.price-card,
+.amenity-card,
+.feature-card,
+.testimonial-card,
+.founder-card,
+.diff-card { border-radius: 8px; }
+
+/* Inputs use the brand font (Clash Grotesk) incl. placeholders, 8px radius */
+.subscribe-field input,
+.subscribe-mobile-wrap,
+.subscribe-mobile-wrap input { font-family: var(--font-body); border-radius: 8px; }
+.subscribe-field input::placeholder { font-family: var(--font-body); }
+
+/* Taller primary submit button on the checkout form */
+.subscribe-submit { padding: 16px 26px; font-weight: 500; }
 

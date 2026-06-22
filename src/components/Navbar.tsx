@@ -11,7 +11,10 @@ export default function Navbar() {
 
   return (
     <nav>
-      <Link href="/" className="nav-logo">Hustler&apos;s Hive</Link>
+      <Link href="/" className="nav-logo">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" alt="Hustler's Hive" />
+      </Link>
       <ul className="nav-links">
         <li><Link href="/#plans">Plans</Link></li>
       </ul>

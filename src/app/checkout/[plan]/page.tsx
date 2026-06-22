@@ -17,7 +17,10 @@ export default async function CheckoutPage({
   return (
     <main className="checkout-page">
       <div className="checkout-card">
-        <Link href="/" className="checkout-logo">Hustler&apos;s Hive</Link>
+        <Link href="/" className="checkout-logo">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Hustler's Hive" />
+        </Link>
         <h1 className="checkout-title">
           {planDef.billing === 'recurring' ? 'Start your membership' : 'Complete your purchase'}
         </h1>

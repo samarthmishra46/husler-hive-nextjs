@@ -256,19 +256,19 @@ export default function CheckoutForm({ plan }: CheckoutFormProps) {
 
       {/* Selected Plan Info */}
       <div style={{
-        background: 'rgba(108,30,227,0.12)',
-        border: '1px solid rgba(108,30,227,0.25)',
-        borderRadius: '12px',
+        background: '#161618',
+        border: '1px solid var(--border)',
+        borderRadius: '8px',
         padding: '16px',
         marginBottom: '20px',
         textAlign: 'center'
       }}>
-        <div style={{ fontWeight: 600, color: 'var(--purple-light)', fontSize: '0.9rem' }}>{planInfo.name}</div>
-        <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text)' }}>
+        <div style={{ fontWeight: 500, color: 'var(--purple-light)', fontSize: '0.9rem' }}>{planInfo.name}</div>
+        <div style={{ fontSize: '1.5rem', fontWeight: 500, color: 'var(--text)' }}>
           {planInfo.priceLabel} <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--text-muted)' }}>{planInfo.period}</span>
         </div>
         {isRecurring ? (
-          <div style={{ fontSize: '0.8rem', color: '#10b981', marginTop: '4px' }}>🎉 7-day free trial included</div>
+          <div style={{ fontSize: '0.8rem', color: '#10b981', marginTop: '4px' }}>7-day free trial included</div>
         ) : (
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>One-time payment • Lifetime access</div>
         )}
