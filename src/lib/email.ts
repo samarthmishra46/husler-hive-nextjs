@@ -46,17 +46,14 @@ export async function sendWelcomeEmailIfNeeded(user: IUserDocument): Promise<voi
     ? `${APP_URL}/payment/verify?sub_id=${encodeURIComponent(user.cashfreeSubscriptionId)}`
     : `${APP_URL}/payment/verify?order_id=${encodeURIComponent(user.cashfreeOrderId!)}`;
   const plan = planLabel(user.plan);
-  const trial = user.subscriptionStatus === 'trial';
 
   const html = `
     <div style="font-family: Inter, -apple-system, system-ui, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; background: #fff; color: #1a1a2e;">
       <h2 style="font-size: 1.5rem; font-weight: 800; margin: 0 0 8px;">
-        Payment ${trial ? 'authorized' : 'received'} 🎉
+        Payment received 🎉
       </h2>
       <p style="color: #6b6b8a; font-size: 0.95rem; margin: 0 0 24px;">
-        Welcome to Hustler's Hive. ${trial
-          ? 'Your 7-day free trial has started — you will only be charged after the trial ends.'
-          : 'Your subscription is now active.'}
+        Welcome to Hustler's Hive. Your subscription is now active.
       </p>
 
       <div style="border: 1px solid #ececf3; border-radius: 12px; padding: 20px; margin: 0 0 28px;">
@@ -74,7 +71,7 @@ export async function sendWelcomeEmailIfNeeded(user: IUserDocument): Promise<voi
           </tr>
           <tr>
             <td style="padding: 4px 0; color: #6b6b8a;">Status</td>
-            <td style="padding: 4px 0; text-align: right; font-weight: 600;">${trial ? 'Trial active' : 'Active'}</td>
+            <td style="padding: 4px 0; text-align: right; font-weight: 600;">Active</td>
           </tr>
           <tr>
             <td style="padding: 4px 0; color: #6b6b8a;">Reference ID</td>
@@ -108,9 +105,7 @@ export async function sendWelcomeEmailIfNeeded(user: IUserDocument): Promise<voi
     const { data, error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL,
       to: user.email,
-      subject: trial
-        ? "Trial started — connect Discord to get access"
-        : "Payment received — connect Discord to get access",
+      subject: "Payment received — connect Discord to get access",
       html,
     });
 

@@ -6,7 +6,7 @@ export interface IUser {
   discordUsername?: string;
   discordAccessToken?: string;
   cashfreeSubscriptionId?: string;
-  subscriptionStatus: 'none' | 'trial' | 'active' | 'expired';
+  subscriptionStatus: 'active' | 'expired';
   trialUsed: boolean;
   channelAdded: boolean;
   joinedAt?: Date;
@@ -37,6 +37,7 @@ export interface IAuditLog {
     | 'payment_failed'
     | 'joined_channel'
     | 'left_channel'
+    | 'role_removed'
     | 'kicked';
   details?: string;
   createdAt: Date;

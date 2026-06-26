@@ -49,7 +49,6 @@ export const PLANS: Record<PlanKey, PlanDef> = {
     priceLabel: inr(4999),
     badge: 'Most Popular',
     features: [
-      '7 days Free Trial',
       'Private Discord Access',
       'Recorded Sessions Library',
       '24/7 Mentor Support',
@@ -66,7 +65,6 @@ export const PLANS: Record<PlanKey, PlanDef> = {
     period: '/3 months',
     priceLabel: inr(12999),
     features: [
-      '7 days Free Trial',
       'Private Discord Access',
       'Recorded Sessions Library',
       '24/7 Mentor Support',
@@ -83,7 +81,6 @@ export const PLANS: Record<PlanKey, PlanDef> = {
     period: '/month',
     priceLabel: inr(14999),
     features: [
-      '7 days Free Trial',
       'Everything in Foundation',
       'Live Trade Floor Access',
       'Priority Mentor Support',
@@ -100,7 +97,6 @@ export const PLANS: Record<PlanKey, PlanDef> = {
     period: '/3 months',
     priceLabel: inr(39999),
     features: [
-      '7 days Free Trial',
       'Everything in Foundation',
       'Live Trade Floor Access',
       'Priority Mentor Support',

@@ -20,7 +20,7 @@ export default function Navbar() {
       </ul>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <Link href="/checkout/foundation-1m" className="nav-cta">
-          Join Free Trial →
+          Join Now →
         </Link>
       </div>
     </nav>

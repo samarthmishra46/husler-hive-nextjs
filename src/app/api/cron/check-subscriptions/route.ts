@@ -3,7 +3,7 @@ import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import AuditLog from '@/models/AuditLog';
 import { getSubscriptionStatus } from '@/lib/cashfree';
-import { removeRoleFromUser } from '@/lib/discord';
+import { removeRoleFromUser, getGuildMember } from '@/lib/discord';
 
 export async function GET(request: NextRequest) {
   try {
@@ -71,34 +71,48 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Pass 2: catch trial users whose 7-day window has passed but who were not
-    // kicked by webhooks (e.g. Cashfree webhook delivery failure).
-    // We check Cashfree live — if the subscription is not ACTIVE, they have not paid.
-    const TRIAL_DAYS = 7;
-    const trialCutoff = new Date();
-    trialCutoff.setDate(trialCutoff.getDate() - TRIAL_DAYS);
-
-    const overdueTrialUsers = await User.find({
-      subscriptionStatus: 'trial',
-      channelAdded: true,
+    // Pass 2: reconciliation — catch users with no active plan who are still in
+    // Discord but were missed by webhooks/Pass 1 (e.g. the `channelAdded` flag
+    // desynced, or a webhook never arrived). We only look at users WE know about
+    // (a linked discordId in our DB); members who joined via other invites are
+    // never in this query and are never touched. Lifetime buyers and active
+    // subscribers are entitled, so they're excluded.
+    let reconciled = 0;
+    const orphans = await User.find({
+      discordId: { $ne: null },
       lifetime: { $ne: true },
-      createdAt: { $lte: trialCutoff },
+      subscriptionStatus: { $ne: 'active' },
     });
 
-    for (const user of overdueTrialUsers) {
-      if (!user.cashfreeSubscriptionId) {
-        await kickUser(user, 'Trial expired: no subscription ID found');
-        continue;
-      }
+    for (const user of orphans) {
+      checked++;
       try {
-        const subStatus = await getSubscriptionStatus(user.cashfreeSubscriptionId);
-        const status = (subStatus.status || subStatus.subscription_status || '').toUpperCase();
-
-        if (status !== 'ACTIVE') {
-          await kickUser(user, `Trial expired: subscription status = ${status || 'unknown'}`);
+        // Check live Discord state rather than trusting the stale `channelAdded`
+        // flag — this is what fixes the "no active plan but still in Discord" bug.
+        const member = await getGuildMember(user.discordId!);
+        if (member) {
+          // Still in the guild → strip the paid role.
+          try {
+            await removeRoleFromUser(user.discordId!);
+          } catch (discordErr) {
+            console.error(`Error removing role from ${user.email}:`, discordErr);
+          }
+          reconciled++;
+          await AuditLog.create({
+            userId: user._id,
+            userEmail: user.email,
+            action: 'role_removed',
+            details: `Reconciliation: no active plan (status=${user.subscriptionStatus})`,
+          });
+        }
+        // Whether present or already gone, sync our flags to reality.
+        if (user.channelAdded) {
+          user.channelAdded = false;
+          if (!user.leftAt) user.leftAt = new Date();
+          await user.save();
         }
       } catch (err) {
-        console.error(`Error checking trial subscription for ${user.email}:`, err);
+        console.error(`Error reconciling Discord access for ${user.email}:`, err);
       }
     }
 
@@ -106,6 +120,7 @@ export async function GET(request: NextRequest) {
       success: true,
       checked,
       kicked,
+      reconciled,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

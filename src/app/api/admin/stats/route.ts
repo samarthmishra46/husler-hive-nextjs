@@ -20,14 +20,14 @@ export async function GET(request: NextRequest) {
     const [
       totalUsers,
       activeUsers,
-      trialUsers,
+      expiredUsers,
       totalRevenueAgg,
       monthlyRevenueAgg,
       recentActivity,
     ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ subscriptionStatus: 'active' }),
-      User.countDocuments({ subscriptionStatus: 'trial' }),
+      User.countDocuments({ subscriptionStatus: 'expired' }),
       Payment.aggregate([
         { $match: { status: 'success', amount: { $gte: 4999 } } },
         { $group: { _id: null, total: { $sum: '$amount' } } },
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       stats: {
         totalUsers,
         activeUsers,
-        trialUsers,
+        expiredUsers,
         totalRevenue: totalRevenueAgg[0]?.total || 0,
         monthlyRevenue: monthlyRevenueAgg[0]?.total || 0,
       },

@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
           discordUser.username + (discordUser.discriminator !== '0' ? `#${discordUser.discriminator}` : '');
         
         // Re-add to guild and role if they have active subscription
-        if (['trial', 'active'].includes(existingUser.subscriptionStatus)) {
+        if (existingUser.subscriptionStatus === 'active') {
           await addToGuildWithRetry(discordUser.id, accessToken);
           const roleAdded = await addRoleWithRetry(discordUser.id);
           if (roleAdded) {
@@ -158,7 +158,7 @@ export async function GET(request: NextRequest) {
     if (!user) {
       user = await User.findOne({
         discordId: null,
-        subscriptionStatus: { $in: ['trial', 'active'] },
+        subscriptionStatus: 'active',
       }).sort({ updatedAt: -1 });
 
       if (user) {
@@ -174,7 +174,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Verify user has active subscription
-    if (!['trial', 'active'].includes(user.subscriptionStatus)) {
+    if (user.subscriptionStatus !== 'active') {
       console.error(`User ${user.email} has inactive subscription: ${user.subscriptionStatus}`);
       return NextResponse.redirect(
         `${base}/discord/connect?error=no_subscription`

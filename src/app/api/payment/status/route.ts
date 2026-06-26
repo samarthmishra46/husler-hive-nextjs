@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ready: false });
     }
 
-    const ready = ['trial', 'active'].includes(user.subscriptionStatus);
+    const ready = user.subscriptionStatus === 'active';
 
     return NextResponse.json({
       ready,

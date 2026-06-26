@@ -26,7 +26,7 @@ export interface IUserDocument extends Document {
   discordAccessToken?: string;
   cashfreeSubscriptionId?: string;
   cashfreeOrderId?: string;
-  subscriptionStatus: 'none' | 'trial' | 'active' | 'expired';
+  subscriptionStatus: 'active' | 'expired';
   plan?: StoredPlan;
   /** One-time / paid-in-advance buyers — never expired or kicked. */
   lifetime: boolean;
@@ -50,8 +50,8 @@ const UserSchema = new Schema<IUserDocument>(
     cashfreeOrderId: { type: String, default: null },
     subscriptionStatus: {
       type: String,
-      enum: ['none', 'trial', 'active', 'expired'],
-      default: 'none',
+      enum: ['active', 'expired'],
+      default: 'expired',
     },
     plan: {
       type: String,

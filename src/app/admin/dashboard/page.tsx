@@ -37,7 +37,7 @@ interface PaymentEntry {
 interface Stats {
   totalUsers: number;
   activeUsers: number;
-  trialUsers: number;
+  expiredUsers: number;
   totalRevenue: number;
   monthlyRevenue: number;
 }
@@ -98,7 +98,7 @@ export default function AdminDashboardPage() {
   };
 
   const handleCleanupStale = async () => {
-    if (!confirm('Recompute every user\'s status from their actual payments? Drop-offs become "none", trial-only payers become "trial", users who paid ₹4999+ stay/become "active".')) return;
+    if (!confirm('Recompute active users\' status from their actual payments? Active users with no ₹4999+ payment are demoted to "expired".')) return;
     setCleaningStale(true);
     try {
       const res = await fetch('/api/admin/cleanup-stale', { method: 'POST' });
@@ -292,7 +292,7 @@ export default function AdminDashboardPage() {
                   {[
                     { label: 'Total Users', value: stats.totalUsers, icon: '👥' },
                     { label: 'Active Subscribers', value: stats.activeUsers, icon: '✅' },
-                    { label: 'Trial Users', value: stats.trialUsers, icon: '⏳' },
+                    { label: 'Expired Users', value: stats.expiredUsers, icon: '⌛' },
                     { label: 'All-Time Revenue', value: `₹${stats.totalRevenue.toLocaleString('en-IN')}`, icon: '💰' },
                     { label: 'Revenue This Month', value: `₹${stats.monthlyRevenue.toLocaleString('en-IN')}`, icon: '📅' },
                   ].map((stat) => (
@@ -357,9 +357,7 @@ export default function AdminDashboardPage() {
                   <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={selectStyle}>
                     <option value="all">All Statuses</option>
                     <option value="active">Active</option>
-                    <option value="trial">Trial</option>
                     <option value="expired">Expired</option>
-                    <option value="none">None</option>
                  </select>
           <button
             onClick={async () => {

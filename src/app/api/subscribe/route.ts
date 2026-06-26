@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
-import User from '@/models/User';
 import { createSubscription, generateSubscriptionId } from '@/lib/cashfree';
 import { getPlan } from '@/lib/plans';
 import { appUrl } from '@/lib/appUrl';
@@ -26,11 +25,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Eligibility check is read-only. The user record itself is NOT created here —
-    // the Cashfree webhook will create it only after authorization/payment succeeds.
-    const existing = await User.findOne({ email: email.toLowerCase().trim() });
-    const trialDays = existing && existing.subscriptionStatus && existing.subscriptionStatus !== 'none' ? 0 : 7;
-
+    // The user record itself is NOT created here — the Cashfree webhook creates it
+    // only after authorization/payment succeeds. Every subscriber pays the full
+    // plan amount upfront (no free trial).
     const subscriptionId = generateSubscriptionId();
 
     const result = await createSubscription({
@@ -38,7 +35,6 @@ export async function POST(request: NextRequest) {
       subscriptionId,
       customerEmail: email,
       customerPhone: mobile,
-      trialDays,
       returnUrl: appUrl(`/api/payment/return?sub_id=${subscriptionId}`),
     });
 
@@ -57,7 +53,6 @@ export async function POST(request: NextRequest) {
       subscriptionId,
       subscriptionSessionId: result.subscription_session_id,
       paymentLink: `https://subscription.cashfree.com/subscription/session/${result.subscription_session_id}`,
-      trialDays,
       plan,
     });
   } catch (error) {

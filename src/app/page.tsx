@@ -22,7 +22,7 @@ function PlanCard({ plan }: { plan: PlanDef }) {
         ))}
       </ul>
       <Link href={`/checkout/${plan.key}`} className="btn-primary price-card-btn">
-        {plan.billing === 'recurring' ? 'Start Free Trial' : 'Buy Now'}
+        {plan.billing === 'recurring' ? 'Subscribe' : 'Buy Now'}
       </Link>
     </div>
   );
@@ -50,7 +50,7 @@ export default function Home() {
           Choose Your <span className="hl">Plan</span>
         </h1>
         <p className="section-body" style={{ margin: '16px auto 0' }}>
-          Trade alongside mentors in the live 7-8 PM session. Pick the plan that fits — start with a 7-day free trial, or get lifetime access.
+          Trade alongside mentors in the live 7-8 PM session. Pick the plan that fits — a recurring membership or lifetime access.
         </p>
       </section>
 
@@ -60,7 +60,7 @@ export default function Home() {
           <p className="section-eyebrow">Memberships</p>
           <h2 className="section-title">Recurring Plans</h2>
           <p className="section-body" style={{ margin: '0 auto' }}>
-            7-day free trial included. Cancel anytime from your UPI/Bank app.
+            Billed up front. Cancel anytime from your UPI/Bank app.
           </p>
         </div>
         <div className="pricing-grid">

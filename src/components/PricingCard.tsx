@@ -29,11 +29,6 @@ export default function PricingCard({ onSubscribe }: PricingCardProps) {
           <span className="text-gray-400">/month</span>
         </div>
 
-        {/* Trial badge */}
-        <div className="mt-3 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300 ring-1 ring-emerald-500/20">
-          🎉 7-day free trial for new members
-        </div>
-
         {/* Features */}
         <ul className="mt-8 space-y-4">
           {[
@@ -70,7 +65,7 @@ export default function PricingCard({ onSubscribe }: PricingCardProps) {
           onClick={onSubscribe}
           className="mt-8 w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-4 text-lg font-semibold text-black shadow-lg shadow-amber-500/25 transition-all hover:shadow-amber-500/40 hover:brightness-110 active:scale-[0.98]"
         >
-          Start Free Trial →
+          Subscribe →
         </button>
 
         <p className="mt-3 text-center text-xs text-gray-500">

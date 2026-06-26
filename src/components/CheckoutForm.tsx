@@ -29,7 +29,6 @@ export default function CheckoutForm({ plan }: CheckoutFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [sdkReady, setSdkReady] = useState(false);
-  const [showTrialExpiredPopup, setShowTrialExpiredPopup] = useState(false);
 
   const planInfo = PLANS[plan];
   const isRecurring = planInfo.billing === 'recurring';
@@ -80,19 +79,7 @@ export default function CheckoutForm({ plan }: CheckoutFormProps) {
 
     try {
       if (isRecurring) {
-        // Recurring plans get a 7-day trial — check eligibility first.
-        const checkRes = await fetch('/api/check-user', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
-        });
-        const checkData = await checkRes.json();
-
-        if (!checkData.eligibleForTrial) {
-          setShowTrialExpiredPopup(true);
-          setLoading(false);
-          return;
-        }
+        // Recurring plans charge the full amount upfront — no trial.
         await proceedToSubscription();
       } else {
         // One-time products charge the full amount immediately.
@@ -108,7 +95,6 @@ export default function CheckoutForm({ plan }: CheckoutFormProps) {
 
   const proceedToSubscription = async () => {
     setLoading(true);
-    setShowTrialExpiredPopup(false);
 
     try {
       const res = await fetch('/api/subscribe', {
@@ -181,79 +167,6 @@ export default function CheckoutForm({ plan }: CheckoutFormProps) {
 
   return (
     <>
-      {/* Trial Expired Popup (recurring plans only) */}
-      {showTrialExpiredPopup && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0,0,0,0.6)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-        }}>
-          <div style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: '16px',
-            padding: '32px',
-            maxWidth: '400px',
-            width: '90%',
-            textAlign: 'center',
-            boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
-          }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏰</div>
-            <h3 style={{
-              fontSize: '1.4rem',
-              fontWeight: 600,
-              color: 'var(--text)',
-              marginBottom: '12px'
-            }}>
-              Your Free Trial Has Expired
-            </h3>
-            <p style={{
-              color: 'var(--text-muted)',
-              marginBottom: '24px',
-              fontSize: '0.95rem',
-              lineHeight: 1.5
-            }}>
-              You&apos;ve already used your 7-day free trial. You&apos;ll be charged {planInfo.priceLabel} immediately upon subscription.
-            </p>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-              <button
-                onClick={() => setShowTrialExpiredPopup(false)}
-                style={{
-                  padding: '12px 24px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface-2)',
-                  color: 'var(--text)',
-                  cursor: 'pointer',
-                  fontWeight: 500,
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={proceedToSubscription}
-                disabled={loading}
-                style={{
-                  padding: '12px 24px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, var(--purple) 0%, var(--purple-light) 100%)',
-                  color: '#fff',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                }}
-              >
-                {loading ? 'Processing...' : 'Continue to Payment →'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Selected Plan Info */}
       <div style={{
         background: '#161618',
@@ -268,7 +181,7 @@ export default function CheckoutForm({ plan }: CheckoutFormProps) {
           {planInfo.priceLabel} <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--text-muted)' }}>{planInfo.period}</span>
         </div>
         {isRecurring ? (
-          <div style={{ fontSize: '0.8rem', color: '#10b981', marginTop: '4px' }}>7-day free trial included</div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>Billed {planInfo.period.replace(/^\//, 'every ')} • Cancel anytime</div>
         ) : (
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>One-time payment • Lifetime access</div>
         )}

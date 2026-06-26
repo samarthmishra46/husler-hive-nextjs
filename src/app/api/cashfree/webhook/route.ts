@@ -85,11 +85,13 @@ async function findOrCreateUser(data: Record<string, unknown>, plan: PlanKey) {
   }
 
   // 3. Brand new customer — create the record now that payment is confirmed.
+  // Status starts 'expired' (the schema default) and the calling event promotes
+  // it to 'active' immediately once it confirms the auth/charge succeeded.
   return User.create({
     email,
     mobile: phone || 'unknown',
     cashfreeSubscriptionId: subscriptionId,
-    subscriptionStatus: 'none',
+    subscriptionStatus: 'expired',
     trialUsed: false,
     channelAdded: false,
     plan,
@@ -130,11 +132,6 @@ async function revokeDiscordAccess(
     details: reason,
   });
 }
-
-// A real subscription charge is ₹4999 (monthly) or ₹12997 (quarterly).
-// Anything below this is the trial auth (typically ₹1) — paying it
-// means the user authorized the mandate but hasn't been billed yet.
-const SUBSCRIPTION_MIN_AMOUNT = 4999;
 
 // Statuses that mean the user should lose access
 const INACTIVE_STATUSES = [
@@ -193,12 +190,10 @@ export async function POST(request: NextRequest) {
           const user = await findOrCreateUser(data, getPlanFromData(data));
           if (!user) break;
 
-          // Cashfree flips status to ACTIVE the moment auth succeeds, which happens
-          // DURING the trial window before any real ₹4999 charge. So only seed 'trial'
-          // if status is still 'none'; never promote an existing trial → active here
-          // (that flip only happens on SUBSCRIPTION_PAYMENT_SUCCESS for ₹4999+).
-          if (user.subscriptionStatus === 'none') {
-            user.subscriptionStatus = 'trial' as const;
+          // Auth charges the full plan amount upfront (no trial), so an ACTIVE
+          // subscription means the user has paid — mark them active.
+          if (user.subscriptionStatus !== 'active') {
+            user.subscriptionStatus = 'active' as const;
             await user.save();
           }
 
@@ -256,14 +251,13 @@ export async function POST(request: NextRequest) {
         if (!user) break;
 
         if (success) {
-          // Save the authorization payment so it appears in Finance (₹1 for trial, full amount for returning users)
+          // Save the authorization payment so it appears in Finance (full plan amount, charged upfront).
           const authAmount = Number(authDetails?.authorization_amount || (data.payment_amount as number)) || 1;
 
-          // Amount-based: ₹4999+ = real subscription payment → active; otherwise trial auth → trial.
-          // Don't downgrade an already-active user.
+          // Auth charges the full plan amount upfront — a successful auth means the
+          // user has paid. Mark them active (don't re-write an already-active user).
           if (user.subscriptionStatus !== 'active') {
-            user.subscriptionStatus = authAmount >= SUBSCRIPTION_MIN_AMOUNT ? 'active' : 'trial';
-            user.trialUsed = authAmount < SUBSCRIPTION_MIN_AMOUNT;
+            user.subscriptionStatus = 'active' as const;
             await user.save();
           }
           const authCfPaymentId = String(
@@ -294,10 +288,9 @@ export async function POST(request: NextRequest) {
 
           await sendWelcomeEmailIfNeeded(user);
         } else if (authStatus.toUpperCase() === 'FAILED' || paymentStatus.toUpperCase() === 'FAILED') {
-          // Reset so user can retry — clear the premature status set by subscribe route
-          if (['none', 'trial'].includes(user.subscriptionStatus)) {
-            user.subscriptionStatus = 'none' as const;
-            user.trialUsed = false;
+          // Auth failed — the user never paid, so they have no access.
+          if (user.subscriptionStatus !== 'active') {
+            user.subscriptionStatus = 'expired' as const;
             await user.save();
           }
           await AuditLog.create({
@@ -320,13 +313,9 @@ export async function POST(request: NextRequest) {
 
         const paymentAmount = Number(data.payment_amount) || 0;
 
-        // Only the real recurring charge (₹4999+) flips a user to 'active'.
-        // Smaller success events (e.g. trial auth re-confirmations) keep them on 'trial'.
-        if (paymentAmount >= SUBSCRIPTION_MIN_AMOUNT) {
+        // Any successful charge means the subscription is paid — mark active.
+        if (user.subscriptionStatus !== 'active') {
           user.subscriptionStatus = 'active' as const;
-          await user.save();
-        } else if (user.subscriptionStatus === 'none') {
-          user.subscriptionStatus = 'trial' as const;
           await user.save();
         }
 

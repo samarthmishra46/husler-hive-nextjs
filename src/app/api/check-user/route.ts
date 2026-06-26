@@ -18,20 +18,16 @@ export async function POST(request: NextRequest) {
     const user = await User.findOne({ email: email.toLowerCase().trim() });
 
     if (!user) {
-      // New user - gets free trial
       return NextResponse.json({
         exists: false,
-        eligibleForTrial: true,
+        // Free trial has been removed — every subscriber pays the full amount upfront.
+        eligibleForTrial: false,
       });
     }
 
-    // User exists - check if eligible for trial
-    // Only 'none' or empty status gets free trial
-    const eligibleForTrial = !user.subscriptionStatus || user.subscriptionStatus === 'none';
-
     return NextResponse.json({
       exists: true,
-      eligibleForTrial,
+      eligibleForTrial: false,
       subscriptionStatus: user.subscriptionStatus,
     });
   } catch (error) {

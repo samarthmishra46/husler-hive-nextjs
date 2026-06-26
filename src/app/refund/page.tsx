@@ -11,10 +11,11 @@ export default function RefundPage() {
           </p>
 
           <div className="amenity-card">
-            <h4 className="amenity-title">1. Free Trial</h4>
+            <h4 className="amenity-title">1. Subscription Charges</h4>
             <p className="amenity-desc">
-              First-time subscribers receive a 7-day free trial. You may cancel during the trial period
-              without being charged. No refund is needed for trial cancellations.
+              All subscriptions are billed in full at the time of purchase, with no free trial. Your
+              access begins immediately upon successful payment. You may cancel at any time to prevent
+              future charges.
             </p>
           </div>
 

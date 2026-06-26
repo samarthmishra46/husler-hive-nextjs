@@ -13,8 +13,8 @@ export default function TermsPage() {
             <h4 className="amenity-title">1. Subscription</h4>
             <p className="amenity-desc">
               Hustlers Hive offers a subscription-based service that provides access to a private Discord
-              channel with trading signals and insights. Your subscription begins upon successful payment
-              and includes a 7-day free trial for first-time subscribers.
+              channel with trading signals and insights. Your subscription begins upon successful payment.
+              The full subscription amount is charged up front; there is no free trial.
             </p>
           </div>
 

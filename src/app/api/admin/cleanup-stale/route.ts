@@ -9,10 +9,9 @@ const SUBSCRIPTION_MIN_AMOUNT = 4999;
 // Recompute subscriptionStatus from real Payment records.
 // Rules:
 //   - has a successful payment ≥ ₹4999  → 'active'
-//   - has only a trial-auth success     → 'trial'
-//   - no successful payment             → 'none'  (drop-off at Cashfree)
-// We only ever touch users currently marked 'active' or 'trial' — never
-// downgrade an 'expired' user (subscription was cancelled/refunded).
+//   - no successful payment ≥ ₹4999     → 'expired'  (drop-off at Cashfree)
+// We only ever touch users currently marked 'active' — demoting those with no
+// real payment to 'expired'. Already-'expired' users are left alone.
 export async function POST() {
   try {
     const isAdmin = await isAdminAuthenticated();
@@ -23,7 +22,7 @@ export async function POST() {
     await dbConnect();
 
     const candidates = await User.find({
-      subscriptionStatus: { $in: ['active', 'trial'] },
+      subscriptionStatus: 'active',
     }).select('_id email subscriptionStatus');
 
     const successByUser = await Payment.aggregate<{
@@ -41,39 +40,24 @@ export async function POST() {
 
     for (const user of candidates) {
       const maxAmount = maxAmountByUser.get(String(user._id)) ?? 0;
-      const correct: 'active' | 'trial' | 'none' =
-        maxAmount >= SUBSCRIPTION_MIN_AMOUNT
-          ? 'active'
-          : maxAmount > 0
-          ? 'trial'
-          : 'none';
-
-      if (correct !== user.subscriptionStatus) {
+      // 'active' is correct only with a real ₹4999+ payment; otherwise demote.
+      if (maxAmount < SUBSCRIPTION_MIN_AMOUNT) {
         changes.push({
           email: user.email,
           from: user.subscriptionStatus,
-          to: correct,
+          to: 'expired',
         });
       }
     }
 
-    // Apply in three batched updates (one per target status)
-    for (const target of ['active', 'trial', 'none'] as const) {
-      const ids = changes
-        .filter((c) => c.to === target)
-        .map(
-          (c) => candidates.find((u) => u.email === c.email)!._id
-        );
-      if (ids.length === 0) continue;
-
-      const update: Record<string, unknown> = { subscriptionStatus: target };
-      if (target === 'none') {
-        update.trialUsed = false;
-        update.cashfreeSubscriptionId = null;
-      } else if (target === 'trial') {
-        update.trialUsed = true;
-      }
-      await User.updateMany({ _id: { $in: ids } }, { $set: update });
+    const ids = changes.map(
+      (c) => candidates.find((u) => u.email === c.email)!._id
+    );
+    if (ids.length > 0) {
+      await User.updateMany(
+        { _id: { $in: ids } },
+        { $set: { subscriptionStatus: 'expired', trialUsed: false } }
+      );
     }
 
     return NextResponse.json({

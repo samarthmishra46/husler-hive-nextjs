@@ -10,6 +10,7 @@ export interface IAuditLogDocument extends Document {
     | 'payment_failed'
     | 'joined_channel'
     | 'left_channel'
+    | 'role_removed'
     | 'kicked';
   details?: string;
   createdAt: Date;
@@ -28,6 +29,7 @@ const AuditLogSchema = new Schema<IAuditLogDocument>(
         'payment_failed',
         'joined_channel',
         'left_channel',
+        'role_removed',
         'kicked',
       ],
       required: true,
