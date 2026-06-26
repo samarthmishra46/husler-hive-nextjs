@@ -87,6 +87,9 @@ export async function GET(request: NextRequest) {
     for (const user of orphans) {
       checked++;
       try {
+        // Capture the status before any normalization for the audit detail.
+        const prevStatus = user.subscriptionStatus;
+
         // Check live Discord state rather than trusting the stale `channelAdded`
         // flag — this is what fixes the "no active plan but still in Discord" bug.
         const member = await getGuildMember(user.discordId!);
@@ -102,15 +105,25 @@ export async function GET(request: NextRequest) {
             userId: user._id,
             userEmail: user.email,
             action: 'role_removed',
-            details: `Reconciliation: no active plan (status=${user.subscriptionStatus})`,
+            details: `Reconciliation: no active plan (status=${prevStatus})`,
           });
         }
-        // Whether present or already gone, sync our flags to reality.
+
+        // Sync our flags to reality AND normalize any legacy ('trial'/'none')
+        // status, so the save always passes the new enum — otherwise a legacy
+        // row's save throws and `channelAdded` is never cleared (dashboard keeps
+        // showing "In Channel" even though the role was removed).
+        let dirty = false;
         if (user.channelAdded) {
           user.channelAdded = false;
           if (!user.leftAt) user.leftAt = new Date();
-          await user.save();
+          dirty = true;
         }
+        if (!['active', 'expired'].includes(prevStatus)) {
+          user.subscriptionStatus = 'expired';
+          dirty = true;
+        }
+        if (dirty) await user.save();
       } catch (err) {
         console.error(`Error reconciling Discord access for ${user.email}:`, err);
       }

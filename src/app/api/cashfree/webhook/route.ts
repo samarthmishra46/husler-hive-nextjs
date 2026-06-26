@@ -74,12 +74,17 @@ async function findOrCreateUser(data: Record<string, unknown>, plan: PlanKey) {
     return null;
   }
 
-  // 2. Returning customer (e.g. trial expired, paying again) — link this sub to them.
+  // 2. Returning customer (e.g. expired, paying again) — link this sub to them.
   user = await User.findOne({ email });
   if (user) {
     user.cashfreeSubscriptionId = subscriptionId;
     if (phone) user.mobile = phone;
     user.plan = plan;
+    // Normalize any legacy ('none'/'trial') status so this intermediate save
+    // doesn't fail the new enum. The auth/payment event promotes them to 'active'.
+    if (!['active', 'expired'].includes(user.subscriptionStatus)) {
+      user.subscriptionStatus = 'expired';
+    }
     await user.save();
     return user;
   }
