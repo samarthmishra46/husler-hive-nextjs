@@ -145,6 +145,9 @@ export async function GET(request: NextRequest) {
           if (roleAdded) {
             existingUser.channelAdded = true;
             existingUser.joinedAt = new Date();
+            // They hold the paid role again — put them back in the cron's
+            // reconciliation scan so a future lapse is caught.
+            existingUser.accessRevokedAt = null;
           }
         }
         
@@ -198,6 +201,9 @@ export async function GET(request: NextRequest) {
     if (roleAdded) {
       user.channelAdded = true;
       user.joinedAt = new Date();
+      // They hold the paid role again — put them back in the cron's reconciliation
+      // scan so a future lapse is caught.
+      user.accessRevokedAt = null;
     } else {
       console.error('Failed to add role after retries');
       user.channelAdded = false;

@@ -33,6 +33,13 @@ export interface IUserDocument extends Document {
   trialUsed: boolean;
   channelAdded: boolean;
   welcomeEmailSent: boolean;
+  /**
+   * Set once the cron has CONFIRMED with Discord that the paid role is gone.
+   * Its presence drops the user out of the nightly reconciliation scan — without
+   * it, every churned user is re-checked forever and the job rate-limits itself.
+   * Cleared whenever access is re-granted.
+   */
+  accessRevokedAt?: Date | null;
   joinedAt?: Date;
   leftAt?: Date;
   createdAt: Date;
@@ -62,6 +69,7 @@ const UserSchema = new Schema<IUserDocument>(
     trialUsed: { type: Boolean, default: false },
     channelAdded: { type: Boolean, default: false },
     welcomeEmailSent: { type: Boolean, default: false },
+    accessRevokedAt: { type: Date, default: null },
     joinedAt: { type: Date, default: null },
     leftAt: { type: Date, default: null },
   },
@@ -73,6 +81,8 @@ UserSchema.index({ mobile: 1 });
 UserSchema.index({ discordId: 1 });
 UserSchema.index({ cashfreeSubscriptionId: 1 });
 UserSchema.index({ cashfreeOrderId: 1 });
+// Drives the cron's reconciliation scan.
+UserSchema.index({ subscriptionStatus: 1, accessRevokedAt: 1 });
 
 const User: Model<IUserDocument> =
   mongoose.models.User || mongoose.model<IUserDocument>('User', UserSchema);
