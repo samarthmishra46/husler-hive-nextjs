@@ -3,7 +3,7 @@ import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import AuditLog from '@/models/AuditLog';
 import { getSubscriptionStatus } from '@/lib/cashfree';
-import { removeRoleFromUser, getGuildMember } from '@/lib/discord';
+import { removeRoleFromUser, getPaidRoleState } from '@/lib/discord';
 
 export async function GET(request: NextRequest) {
   try {
@@ -92,9 +92,11 @@ export async function GET(request: NextRequest) {
 
         // Check live Discord state rather than trusting the stale `channelAdded`
         // flag — this is what fixes the "no active plan but still in Discord" bug.
-        const member = await getGuildMember(user.discordId!);
-        if (member) {
-          // Still in the guild → strip the paid role.
+        // Gate on the ROLE, not on guild membership: revoking access leaves the
+        // person in the guild, so a membership check stays true forever and we'd
+        // re-revoke and re-log them every night.
+        const roleState = await getPaidRoleState(user.discordId!);
+        if (roleState === 'has-role') {
           try {
             await removeRoleFromUser(user.discordId!);
           } catch (discordErr) {

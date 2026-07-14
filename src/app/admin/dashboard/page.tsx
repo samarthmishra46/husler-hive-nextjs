@@ -72,6 +72,7 @@ export default function AdminDashboardPage() {
   const [paymentPeriod, setPaymentPeriod] = useState('all');
   const [paymentType, setPaymentType] = useState('all');
   const [cleaningStale, setCleaningStale] = useState(false);
+  const [cleaningLogs, setCleaningLogs] = useState(false);
   const [sendingDiscord, setSendingDiscord] = useState<string | null>(null);
 
   const handleKick = async (userId: string, email: string) => {
@@ -116,6 +117,26 @@ export default function AdminDashboardPage() {
       alert('Error running cleanup');
     } finally {
       setCleaningStale(false);
+    }
+  };
+
+  const handleCleanupAuditLogs = async () => {
+    if (!confirm('Delete the duplicate "Reconciliation" role-removal entries? The first one per user is kept; payments, joins and kicks are untouched.')) return;
+    setCleaningLogs(true);
+    try {
+      const res = await fetch('/api/admin/cleanup-audit-logs', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Scanned ${data.scanned} reconciliation entries across ${data.usersAffected} users. Deleted ${data.deleted} duplicates.`);
+        fetchLogs();
+        fetchStats();
+      } else {
+        alert(data.error || 'Cleanup failed');
+      }
+    } catch {
+      alert('Error cleaning audit logs');
+    } finally {
+      setCleaningLogs(false);
     }
   };
 
@@ -317,6 +338,22 @@ export default function AdminDashboardPage() {
                     style={{ padding: '10px 18px', borderRadius: '10px', border: '1px solid rgba(124,58,237,0.3)', background: 'rgba(124,58,237,0.08)', color: 'var(--purple)', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', opacity: cleaningStale ? 0.5 : 1, whiteSpace: 'nowrap' }}
                   >
                     {cleaningStale ? 'Cleaning…' : 'Recompute statuses'}
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', padding: '16px 20px', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: '12px' }}>
+                  <div>
+                    <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>Purge duplicate reconciliation logs</p>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      Clears the daily repeat entries the cron used to write for every expired user. Keeps the first one per user.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleCleanupAuditLogs}
+                    disabled={cleaningLogs}
+                    style={{ padding: '10px 18px', borderRadius: '10px', border: '1px solid rgba(124,58,237,0.3)', background: 'rgba(124,58,237,0.08)', color: 'var(--purple)', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', opacity: cleaningLogs ? 0.5 : 1, whiteSpace: 'nowrap' }}
+                  >
+                    {cleaningLogs ? 'Purging…' : 'Purge duplicate logs'}
                   </button>
                 </div>
 

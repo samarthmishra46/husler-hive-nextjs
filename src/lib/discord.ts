@@ -76,6 +76,27 @@ export async function getGuildMember(discordUserId: string) {
   }
 }
 
+export type PaidRoleState = 'has-role' | 'no-role' | 'not-member';
+
+/**
+ * Live paid-role state, straight from Discord.
+ *  'has-role'   → in the guild, still holds the paid role
+ *  'no-role'    → in the guild, role already gone — nothing to do
+ *  'not-member' → left the guild, or Discord was unreachable — nothing to do
+ *
+ * Removing the paid role does NOT remove the person from the guild, so
+ * `getGuildMember` keeps returning them forever. Callers that revoke access must
+ * key off the role itself, not off guild membership, or they will re-revoke (and
+ * re-log) the same user on every run.
+ */
+export async function getPaidRoleState(discordUserId: string): Promise<PaidRoleState> {
+  const member = (await getGuildMember(discordUserId)) as { roles?: string[] } | null;
+  if (!member) return 'not-member';
+  return Array.isArray(member.roles) && member.roles.includes(DISCORD_PAID_ROLE_ID)
+    ? 'has-role'
+    : 'no-role';
+}
+
 /**
  * Exchange OAuth code for access token
  */
