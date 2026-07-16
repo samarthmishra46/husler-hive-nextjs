@@ -6,7 +6,7 @@ import AuditLog from '@/models/AuditLog';
 import { verifyWebhookSignature } from '@/lib/cashfree';
 import { removeRoleFromUser } from '@/lib/discord';
 import { sendWelcomeEmailIfNeeded } from '@/lib/email';
-import { recurringPlanKeyByAmount } from '@/lib/plans';
+import { getPlan, recurringPlanKeyByAmount } from '@/lib/plans';
 import type { PlanKey } from '@/lib/plans';
 
 // ─── Helpers ────────────────────────────────────────────────
@@ -120,6 +120,59 @@ function getPlanFromData(data: Record<string, unknown>): PlanKey {
   return recurringPlanKeyByAmount(amount);
 }
 
+/**
+ * Record the upfront authorization charge that starts a subscription.
+ *
+ * Cashfree announces a paid authorization through two different events —
+ * SUBSCRIPTION_AUTH_STATUS and SUBSCRIPTION_STATUS_CHANGED→ACTIVE. Either can arrive
+ * first, both may arrive, or (as happened in production) only STATUS_CHANGED does.
+ * Access used to be granted by STATUS_CHANGED while the Payment row was only ever
+ * written by AUTH_STATUS, so a real subscriber could end up active with no payment
+ * on record: invisible in Finance, and indistinguishable from a non-payer to
+ * /api/admin/cleanup-stale, which would demote them and cost them their Discord role.
+ *
+ * Both events now call this. Upserting on (cashfreeSubscriptionId, kind:'auth') —
+ * unique-indexed — yields exactly one auth payment regardless of which events fire,
+ * in what order, or how many times. A later event carrying the real cf_payment_id
+ * fills it in without inserting a second row.
+ */
+async function recordAuthPayment(params: {
+  user: InstanceType<typeof User>;
+  subscriptionId: string;
+  amount: number;
+  cfPaymentId?: string;
+  paidAt?: Date;
+}) {
+  if (!params.subscriptionId || !params.amount) {
+    console.error(
+      `[Webhook] refusing to record auth payment without sub/amount (sub=${params.subscriptionId}, amount=${params.amount})`
+    );
+    return;
+  }
+
+  try {
+    await Payment.findOneAndUpdate(
+      { cashfreeSubscriptionId: params.subscriptionId, kind: 'auth' },
+      {
+        $setOnInsert: {
+          userId: params.user._id,
+          amount: params.amount,
+          status: 'success',
+          paidAt: params.paidAt ?? new Date(),
+        },
+        // Only ever fill in a real payment id — never blank one out.
+        ...(params.cfPaymentId ? { $set: { cfPaymentId: params.cfPaymentId } } : {}),
+      },
+      { upsert: true, new: true }
+    );
+  } catch (err) {
+    // Concurrent deliveries can race the upsert; the unique index rejects the loser,
+    // which means the row exists. That's the desired end state, not a failure.
+    if ((err as { code?: number })?.code === 11000) return;
+    throw err;
+  }
+}
+
 /** Remove paid role from user in Discord */
 async function revokeDiscordAccess(
   user: InstanceType<typeof User>,
@@ -192,7 +245,8 @@ export async function POST(request: NextRequest) {
 
         if (upper === 'ACTIVE') {
           // First confirmation from Cashfree that auth succeeded — materialize the user.
-          const user = await findOrCreateUser(data, getPlanFromData(data));
+          const planKey = getPlanFromData(data);
+          const user = await findOrCreateUser(data, planKey);
           if (!user) break;
 
           // Auth charges the full plan amount upfront (no trial), so an ACTIVE
@@ -201,6 +255,15 @@ export async function POST(request: NextRequest) {
             user.subscriptionStatus = 'active' as const;
             await user.save();
           }
+
+          // This event alone is proof of payment, and it may be the ONLY one we get,
+          // so it must record the money — not just the access.
+          await recordAuthPayment({
+            user,
+            subscriptionId,
+            amount: getPlan(planKey)?.amount ?? 0,
+            cfPaymentId: String(data.cf_payment_id || ''),
+          });
 
           await AuditLog.create({
             userId: user._id, userEmail: user.email,
@@ -249,15 +312,22 @@ export async function POST(request: NextRequest) {
         console.log(`[Webhook] Auth status: ${authStatus}, Payment: ${paymentStatus}`);
 
         const success = authStatus.toUpperCase() === 'ACTIVE' || paymentStatus.toUpperCase() === 'SUCCESS';
+        const planKey = getPlanFromData(data);
         // Only materialize the user on success — failed auths must not write to the DB.
         const user = success
-          ? await findOrCreateUser(data, getPlanFromData(data))
+          ? await findOrCreateUser(data, planKey)
           : await findUser(data);
         if (!user) break;
 
         if (success) {
-          // Save the authorization payment so it appears in Finance (full plan amount, charged upfront).
-          const authAmount = Number(authDetails?.authorization_amount || (data.payment_amount as number)) || 1;
+          // Save the authorization payment so it appears in Finance (full plan amount,
+          // charged upfront). Falls back to the plan catalog rather than the old `|| 1`
+          // trial-era default, which would have booked ₹4999 of revenue as ₹1 and left
+          // the user looking like a non-payer to cleanup-stale.
+          const authAmount =
+            Number(authDetails?.authorization_amount || (data.payment_amount as number)) ||
+            getPlan(planKey)?.amount ||
+            0;
 
           // Auth charges the full plan amount upfront — a successful auth means the
           // user has paid. Mark them active (don't re-write an already-active user).
@@ -271,19 +341,12 @@ export async function POST(request: NextRequest) {
             data.cfPaymentId ||
             ''
           );
-          if (authCfPaymentId) {
-            const exists = await Payment.findOne({ cfPaymentId: authCfPaymentId });
-            if (!exists) {
-              await Payment.create({
-                userId: user._id,
-                cashfreeSubscriptionId: subscriptionId,
-                amount: authAmount,
-                status: 'success',
-                paidAt: new Date(),
-                cfPaymentId: authCfPaymentId,
-              });
-            }
-          }
+          await recordAuthPayment({
+            user,
+            subscriptionId,
+            amount: authAmount,
+            cfPaymentId: authCfPaymentId,
+          });
 
           await AuditLog.create({
             userId: user._id, userEmail: user.email,
@@ -324,14 +387,36 @@ export async function POST(request: NextRequest) {
           await user.save();
         }
 
-        await Payment.create({
-          userId: user._id,
-          cashfreeSubscriptionId: subscriptionId,
-          amount: paymentAmount,
-          status: 'success',
-          paidAt: new Date(),
-          cfPaymentId: String(data.cf_payment_id || data.payment_id || ''),
-        });
+        const chargeCfPaymentId = String(data.cf_payment_id || data.payment_id || '');
+
+        // Upsert on the Cashfree payment id rather than blind-create: a redelivered or
+        // concurrent webhook would otherwise book the same charge twice and overstate
+        // revenue in Finance. (Historic duplicates exist in the DB from exactly this.)
+        if (chargeCfPaymentId) {
+          await Payment.updateOne(
+            { cfPaymentId: chargeCfPaymentId },
+            {
+              $setOnInsert: {
+                userId: user._id,
+                cashfreeSubscriptionId: subscriptionId,
+                amount: paymentAmount,
+                status: 'success',
+                kind: 'charge',
+                paidAt: new Date(),
+              },
+            },
+            { upsert: true }
+          );
+        } else {
+          await Payment.create({
+            userId: user._id,
+            cashfreeSubscriptionId: subscriptionId,
+            amount: paymentAmount,
+            status: 'success',
+            kind: 'charge',
+            paidAt: new Date(),
+          });
+        }
 
         await AuditLog.create({
           userId: user._id, userEmail: user.email,
