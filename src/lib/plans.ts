@@ -103,13 +103,14 @@ export const PLANS: Record<PlanKey, PlanDef> = {
       'Advanced Trade Reviews',
     ],
   },
+  // Key stays 'elite-59999' — it is persisted on user rows; only the price moved.
   'elite-59999': {
     key: 'elite-59999',
-    name: 'Elite Mentorship',
-    amount: 59999,
+    name: 'Elite Mentorship Plus',
+    amount: 79000,
     billing: 'onetime',
     period: 'one-time',
-    priceLabel: inr(59999),
+    priceLabel: inr(79000),
     features: [
       'Lifetime Mentorship Access',
       'Private Discord Access',
@@ -119,11 +120,11 @@ export const PLANS: Record<PlanKey, PlanDef> = {
   },
   'elite-64999': {
     key: 'elite-64999',
-    name: 'Elite Mentorship Plus',
-    amount: 64999,
+    name: 'Elite Mentorship',
+    amount: 79000,
     billing: 'onetime',
     period: 'one-time',
-    priceLabel: inr(64999),
+    priceLabel: inr(79000),
     features: [
       'Lifetime Mentorship Access',
       'Private Discord Access',
